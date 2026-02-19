@@ -1,10 +1,10 @@
 {
   "mappings": [
-    "/content/universal-editor-getting-started-site/:/",
-    "/content/universal-editor-getting-started-site/configuration:/.helix/config.json",
-    "/content/universal-editor-getting-started-site/metadata:/metadata.json"
+    "/content/myeds-xwalk/:/",
+    "/content/myeds-xwalk/configuration:/.helix/config.json",
+    "/content/myeds-xwalk/metadata:/metadata.json"
   ],
   "includes": [
-    "/content/universal-editor-getting-started-site/"
+    "/content/myeds-xwalk/"
   ]
 }
