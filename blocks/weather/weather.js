@@ -70,7 +70,9 @@ async function fetchWeather(lat, lon, unit) {
   return fetchJSON(url.toString());
 }
 
-function createCard({ name, country, current, unit }) {
+function createCard({
+  name, country, current, unit,
+}) {
   const code = current.weather_code;
   const icon = WMO_ICONS[code] || '🌡️';
   const label = weatherLabel(code);
@@ -79,15 +81,15 @@ function createCard({ name, country, current, unit }) {
 
   return `
     <div class="weather-card">
-      <div class="weather-card__header">
+      <div class="weather-card-header">
         <div>
-          <p class="weather-card__location">${name}${country ? `, ${country}` : ''}</p>
-          <p class="weather-card__summary">${icon} ${label}</p>
+          <p class="weather-card-location">${name}${country ? `, ${country}` : ''}</p>
+          <p class="weather-card-summary">${icon} ${label}</p>
         </div>
-        <div class="weather-card__temp">${Math.round(current.temperature_2m)}${unitSymbol}</div>
+        <div class="weather-card-temp">${Math.round(current.temperature_2m)}${unitSymbol}</div>
       </div>
 
-      <div class="weather-card__meta">
+      <div class="weather-card-meta">
         <div><span>Wind</span><strong>${Math.round(current.wind_speed_10m)} km/h</strong></div>
         <div><span>Condition</span><strong>${label}</strong></div>
       </div>
@@ -100,17 +102,16 @@ export default async function decorate(block) {
     || block.dataset.location
     || '';
 
-  const unit =
-    block.querySelector('div:nth-child(2) p')?.textContent?.trim().toLowerCase()
+  const unit = block.querySelector('div:nth-child(2) p')?.textContent?.trim().toLowerCase()
     || block.dataset.temperatureUnit
     || 'celsius';
 
-  block.innerHTML = `<div class="weather-weather__loading">Loading weather…</div>`;
+  block.innerHTML = '<div class="weather-loading">Loading weather…</div>';
 
   try {
     const place = await geocodeLocation(location);
     if (!place) {
-      block.innerHTML = `<p class="weather-weather__error">No location found for “${location}”.</p>`;
+      block.innerHTML = `<p class="weather-error">No location found for “${location}”.</p>`;
       return;
     }
 
@@ -123,6 +124,6 @@ export default async function decorate(block) {
       unit,
     });
   } catch (e) {
-    block.innerHTML = `<p class="weather-weather__error">Unable to load weather right now.</p>`;
+    block.innerHTML = '<p class="weather-error">Unable to load weather right now.</p>';
   }
 }

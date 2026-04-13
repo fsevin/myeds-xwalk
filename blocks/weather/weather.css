@@ -6,50 +6,50 @@
   box-shadow: 0 8px 30px rgb(0 0 0 / 6%);
 }
 
-.weather-card__header {
+.weather-card-header {
   display: flex;
   justify-content: space-between;
   gap: 16px;
   align-items: flex-start;
 }
 
-.weather-card__location {
+.weather-card-location {
   margin: 0;
   font-size: 1.125rem;
   font-weight: 700;
 }
 
-.weather-card__summary {
+.weather-card-summary {
   margin: 8px 0 0;
   color: #4b5563;
 }
 
-.weather-card__temp {
+.weather-card-temp {
   font-size: 2.5rem;
   font-weight: 800;
   line-height: 1;
 }
 
-.weather-card__meta {
+.weather-card-meta {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-top: 20px;
 }
 
-.weather-card__meta div {
+.weather-card-meta div {
   padding-top: 12px;
   border-top: 1px solid #e5e7eb;
 }
 
-.weather-card__meta span {
+.weather-card-meta span {
   display: block;
   font-size: 0.875rem;
   color: #6b7280;
   margin-bottom: 4px;
 }
 
-.weather-weather__loading,
-.weather-weather__error {
+.weather-loading,
+.weather-error {
   padding: 16px 0;
 }
