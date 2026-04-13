@@ -252,5 +252,33 @@
         "label": "CTA label"
       }
     ]
+  },
+  {
+    "id": "weather",
+    "fields": [
+      {
+        "component": "text",
+        "name": "location",
+        "label": "Location",
+        "valueType": "string",
+        "required": true
+      },
+      {
+        "component": "select",
+        "name": "temperatureUnit",
+        "label": "Temperature unit",
+        "valueType": "string",
+        "options": [
+          {
+            "name": "Celsius",
+            "value": "celsius"
+          },
+          {
+            "name": "Fahrenheit",
+            "value": "fahrenheit"
+          }
+        ]
+      }
+    ]
   }
 ]
