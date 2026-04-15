@@ -2,9 +2,13 @@
   "mappings": [
     "/content/myeds-xwalk/:/",
     "/content/myeds-xwalk/configuration:/.helix/config.json",
-    "/content/myeds-xwalk/metadata:/metadata.json"
+    "/content/myeds-xwalk/metadata:/metadata.json",
+    "/content/myeds-xwalk-stage/:/",
+    "/content/myeds-xwalk-stage/configuration:/.helix/config.json",
+    "/content/myeds-xwalk-stage/metadata:/metadata.json"
   ],
   "includes": [
-    "/content/myeds-xwalk/"
+    "/content/myeds-xwalk/",
+    "/content/myeds-xwalk-stage/"  
   ]
 }
