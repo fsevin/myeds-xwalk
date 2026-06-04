@@ -51,7 +51,7 @@ async function handleGeocode(request, cors) {
   const res = await cachedFetch(upstream, GEOCODE_TTL);
   return new Response(res.body, {
     status: res.status,
-    headers: { 'Content-Type': 'application/json', ...cors },
+    headers: { 'Content-Type': 'application/json; charset=utf-8', ...cors },
   });
 }
 
@@ -95,7 +95,7 @@ async function handleForecast(request, cors) {
   const res = await cachedFetch(upstream.toString(), FORECAST_TTL);
   return new Response(res.body, {
     status: res.status,
-    headers: { 'Content-Type': 'application/json', ...cors },
+    headers: { 'Content-Type': 'application/json; charset=utf-8', ...cors },
   });
 }
 
