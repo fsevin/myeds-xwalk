@@ -1,4 +1,4 @@
-const EDGE_ORIGIN = window.location.hostname === 'localhost' ? 'http://localhost:8787' : '';
+const EDGE_ORIGIN = window.location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://myeds-xwalk-api.fsevin.workers.dev';
 
 function createCard({ mainRate, bankRate }) {
   return `

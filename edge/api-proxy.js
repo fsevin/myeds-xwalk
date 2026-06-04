@@ -1,7 +1,7 @@
 // Allowed origins — update these to match your aem.live / aem.page URLs
 const ALLOWED_ORIGINS = [
-  'https://main--myeds-xwalk--adobe-rnd.aem.live',
-  'https://main--myeds-xwalk--adobe-rnd.aem.page',
+  'https://main--myeds-xwalk--fsevin.aem.live',
+  'https://main--myeds-xwalk--fsevin.aem.page',
   'http://localhost:3000',
 ];
 
