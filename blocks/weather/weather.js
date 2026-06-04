@@ -48,8 +48,8 @@ function weatherLabel(code) {
   }[code] || 'Unknown';
 }
 
-// Local dev: worker runs at 8787; production: same-origin /api/* route
-const EDGE_ORIGIN = window.location.hostname === 'localhost' ? 'http://localhost:8787' : '';
+const EDGE_ORIGIN = window.location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://myeds-xwalk-api.fsevin.workers.dev';
+
 
 async function fetchJSON(url) {
   const res = await fetch(url);
