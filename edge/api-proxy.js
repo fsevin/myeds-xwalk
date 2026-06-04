@@ -7,8 +7,8 @@ const ALLOWED_ORIGINS = [
 
 // Cache TTLs in seconds
 const GEOCODE_TTL = 86400; // 24h — location data is stable
-const FORECAST_TTL = 900;  // 15min — weather updates frequently
-const RATES_TTL = 300;     // 5min — financial rates can change during the day
+const FORECAST_TTL = 900; // 15min — weather updates frequently
+const RATES_TTL = 300; // 5min — financial rates can change during the day
 
 function corsHeaders(origin) {
   const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
