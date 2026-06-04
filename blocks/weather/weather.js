@@ -98,11 +98,11 @@ function createCard({
 }
 
 export default async function decorate(block) {
-  const location = block.querySelector('div:first-child p')?.textContent?.trim()
+  const location = block.querySelector('div:first-child p, div:first-child div')?.textContent?.trim()
     || block.dataset.location
     || '';
 
-  const unit = block.querySelector('div:nth-child(2) p')?.textContent?.trim().toLowerCase()
+  const unit = block.querySelector('div:nth-child(2) p, div:nth-child(2) div')?.textContent?.trim().toLowerCase()
     || block.dataset.temperatureUnit
     || 'celsius';
 
