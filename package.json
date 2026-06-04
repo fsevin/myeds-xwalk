@@ -12,7 +12,9 @@
     "build:json:models": "merge-json-cli -i \"models/_component-models.json\" -o \"component-models.json\"",
     "build:json:definitions": "merge-json-cli -i \"models/_component-definition.json\" -o \"component-definition.json\"",
     "build:json:filters": "merge-json-cli -i \"models/_component-filters.json\" -o \"component-filters.json\"",
-    "prepare": "husky"
+    "prepare": "husky",
+    "dev:edge": "wrangler dev",
+    "deploy:edge": "wrangler deploy"
   },
   "repository": {
     "type": "git",
@@ -35,6 +37,7 @@
     "merge-json-cli": "1.0.4",
     "npm-run-all": "4.1.5",
     "stylelint": "17.0.0",
-    "stylelint-config-standard": "40.0.0"
+    "stylelint-config-standard": "40.0.0",
+    "wrangler": "^4.97.0"
   }
 }

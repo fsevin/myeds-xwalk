@@ -48,6 +48,9 @@ function weatherLabel(code) {
   }[code] || 'Unknown';
 }
 
+// Local dev: worker runs at 8787; production: same-origin /api/* route
+const EDGE_ORIGIN = window.location.hostname === 'localhost' ? 'http://localhost:8787' : '';
+
 async function fetchJSON(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Request failed: ${res.status}`);
@@ -55,17 +58,15 @@ async function fetchJSON(url) {
 }
 
 async function geocodeLocation(location) {
-  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=en&format=json`;
+  const url = `${EDGE_ORIGIN}/api/geocode?name=${encodeURIComponent(location)}`;
   const data = await fetchJSON(url);
   return data?.results?.[0] || null;
 }
 
 async function fetchWeather(lat, lon, unit) {
-  const url = new URL('https://api.open-meteo.com/v1/forecast');
+  const url = new URL(`${EDGE_ORIGIN}/api/forecast`);
   url.searchParams.set('latitude', lat);
   url.searchParams.set('longitude', lon);
-  url.searchParams.set('current', 'temperature_2m,weather_code,wind_speed_10m');
-  url.searchParams.set('timezone', 'auto');
   url.searchParams.set('temperature_unit', unit || 'celsius');
   return fetchJSON(url.toString());
 }

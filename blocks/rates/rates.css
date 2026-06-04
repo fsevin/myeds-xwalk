@@ -1,0 +1,43 @@
+.rates-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  padding: 24px;
+  background: #fff;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 6%);
+}
+
+.rates-card-title {
+  margin: 0 0 20px;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.rates-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.rates-card-item {
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.rates-card-label {
+  display: block;
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.rates-card-value {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #111827;
+}
+
+.rates-loading,
+.rates-error {
+  padding: 16px 0;
+}

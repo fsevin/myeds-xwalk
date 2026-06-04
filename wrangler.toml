@@ -1,0 +1,21 @@
+name = "myeds-xwalk-api"
+main = "edge/api-proxy.js"
+compatibility_date = "2024-09-23"
+
+[dev]
+port = 8787
+
+# AEM instance config — safe to commit (no secrets here)
+[vars]
+AEM_GRAPHQL_URL = "https://author-p195304-e2029973.adobeaemcloud.com/graphql/execute.json/global/getRates"
+
+# AEM Bearer token — store as a secret, never commit it:
+#   npx wrangler secret put AEM_TOKEN
+# For local dev, add to a .dev.vars file (git-ignored):
+#   AEM_TOKEN=<your-token>
+
+# After deploying, add a route to serve /api/* from your production domain:
+#
+# [[routes]]
+# pattern = "your-domain.com/api/*"
+# zone_name = "your-domain.com"
