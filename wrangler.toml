@@ -8,8 +8,8 @@ port = 8787
 # AEM instance config — safe to commit (no secrets here)
 [vars]
 AEM_GRAPHQL_URL = "https://author-p42808-e1367915.adobeaemcloud.com/graphql/execute.json/global/getRates"
-FIREFLY_CLIENT_ID = "PASTE_CLIENT_ID_HERE"
-FIREFLY_SCOPES = "openid,AdobeID,additional_info.projectedProductContext,firefly_api,ff_apis"
+FIREFLY_CLIENT_ID = "86c5ad4a573c4f198adec39064c6cbbd"
+FIREFLY_SCOPES = "openid,AdobeID,session,additional_info,read_organizations,firefly_api,ff_apis"
 
 # AEM Bearer token — store as a secret, never commit it:
 #   npx wrangler secret put AEM_TOKEN
