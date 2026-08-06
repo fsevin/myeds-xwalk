@@ -180,6 +180,38 @@
     ]
   },
   {
+    "id": "firefly",
+    "fields": [
+      {
+        "component": "richtext",
+        "name": "prompt",
+        "label": "Prompt",
+        "valueType": "string",
+        "required": true
+      },
+      {
+        "component": "select",
+        "name": "aspectRatio",
+        "label": "Aspect ratio",
+        "valueType": "string",
+        "options": [
+          {
+            "name": "Square (1024x1024)",
+            "value": "1024x1024"
+          },
+          {
+            "name": "Landscape (1344x768)",
+            "value": "1344x768"
+          },
+          {
+            "name": "Portrait (768x1344)",
+            "value": "768x1344"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "id": "fragment",
     "fields": [
       {

@@ -1,0 +1,11 @@
+.firefly-image {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  border-radius: 12px;
+}
+
+.firefly-loading,
+.firefly-error {
+  padding: 16px 0;
+}

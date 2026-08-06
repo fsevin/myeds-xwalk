@@ -14,7 +14,8 @@ function corsHeaders(origin) {
   const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
     'Access-Control-Allow-Origin': allow,
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Max-Age': '86400',
   };
 }
@@ -79,6 +80,94 @@ async function handleRates(env, cors) {
   );
 }
 
+const FIREFLY_VALID_SIZES = [
+  '1024x1024',
+  '1344x768',
+  '768x1344',
+];
+
+// IMS access tokens live ~24h; cache in-isolate so we don't re-authenticate on every image request.
+let cachedImsToken = null;
+let cachedImsTokenExpiry = 0;
+
+async function getFireflyToken(env) {
+  if (cachedImsToken && Date.now() < cachedImsTokenExpiry) {
+    return cachedImsToken;
+  }
+
+  const res = await fetch('https://ims-na1.adobelogin.com/ims/token/v3', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: env.FIREFLY_CLIENT_ID,
+      client_secret: env.FIREFLY_CLIENT_SECRET,
+      scope: env.FIREFLY_SCOPES,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`IMS token request failed: ${res.status}`);
+  }
+
+  const data = await res.json();
+  cachedImsToken = data.access_token;
+  // Refresh a minute early to avoid using a token that expires mid-flight.
+  cachedImsTokenExpiry = Date.now() + ((data.expires_in - 60) * 1000);
+  return cachedImsToken;
+}
+
+async function handleFireflyGenerate(request, env, cors) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError('Invalid JSON body', 400, cors);
+  }
+
+  const prompt = body?.prompt?.trim();
+  if (!prompt) return jsonError('Missing prompt', 400, cors);
+
+  const size = FIREFLY_VALID_SIZES.includes(body?.size) ? body.size : '1024x1024';
+  const [width, height] = size.split('x').map(Number);
+
+  let token;
+  try {
+    token = await getFireflyToken(env);
+  } catch {
+    return jsonError('Firefly authentication failed', 502, cors);
+  }
+
+  const res = await fetch('https://firefly-api.adobe.io/v3/images/generate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      'x-api-key': env.FIREFLY_CLIENT_ID,
+    },
+    body: JSON.stringify({
+      prompt,
+      size: { width, height },
+      numVariations: 1,
+    }),
+  });
+
+  if (!res.ok) {
+    return jsonError(`Firefly generate failed: ${res.status}`, 502, cors);
+  }
+
+  const data = await res.json();
+  const image = data?.outputs?.[0]?.image;
+  if (!image?.url) {
+    return jsonError('Firefly response missing image URL', 502, cors);
+  }
+
+  return new Response(
+    JSON.stringify({ url: image.url }),
+    { status: 200, headers: { 'Content-Type': 'application/json', ...cors } },
+  );
+}
+
 async function handleForecast(request, cors) {
   const { searchParams } = new URL(request.url);
   const lat = searchParams.get('latitude');
@@ -108,6 +197,12 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors });
     }
+
+    if (pathname === '/api/firefly/generate') {
+      if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+      return handleFireflyGenerate(request, env, cors);
+    }
+
     if (request.method !== 'GET') {
       return new Response('Method Not Allowed', { status: 405 });
     }
