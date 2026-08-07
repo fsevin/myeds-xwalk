@@ -2,6 +2,7 @@
 const ALLOWED_ORIGINS = [
   'https://main--myeds-xwalk--fsevin.aem.live',
   'https://main--myeds-xwalk--fsevin.aem.page',
+  'https://author-p42808-e1367915.adobeaemcloud.com',
   'http://localhost:3000',
 ];
 
