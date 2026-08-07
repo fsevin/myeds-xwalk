@@ -148,7 +148,8 @@ export default async function decorate(block) {
       window.location.reload();
     } catch (e) {
       inFlight.delete(resource);
-      status.textContent = 'Something went wrong generating or saving the image.';
+      console.error('ai-image generation failed', e);
+      status.textContent = `Something went wrong: ${e.message}`;
     }
   }, DEBOUNCE_MS);
   pendingTimers.set(resource, timerId);
