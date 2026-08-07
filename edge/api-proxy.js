@@ -117,26 +117,15 @@ async function getFireflyToken(env) {
   return cachedImsToken;
 }
 
-async function handleFireflyGenerate(request, env, cors) {
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonError('Invalid JSON body', 400, cors);
-  }
-
+function parsePromptAndSize(body) {
   const prompt = body?.prompt?.trim();
-  if (!prompt) return jsonError('Missing prompt', 400, cors);
-
   const size = FIREFLY_VALID_SIZES.includes(body?.size) ? body.size : '1024x1024';
-  const [width, height] = size.split('x').map(Number);
+  return { prompt, size };
+}
 
-  let token;
-  try {
-    token = await getFireflyToken(env);
-  } catch {
-    return jsonError('Firefly authentication failed', 502, cors);
-  }
+async function fireflyGenerate(prompt, size, env) {
+  const [width, height] = size.split('x').map(Number);
+  const token = await getFireflyToken(env);
 
   const res = await fetch('https://firefly-api.adobe.io/v3/images/generate', {
     method: 'POST',
@@ -154,19 +143,74 @@ async function handleFireflyGenerate(request, env, cors) {
   });
 
   if (!res.ok) {
-    return jsonError(`Firefly generate failed: ${res.status}`, 502, cors);
+    throw new Error(`Firefly generate failed: ${res.status}`);
   }
 
   const data = await res.json();
   const image = data?.outputs?.[0]?.image;
   if (!image?.url) {
-    return jsonError('Firefly response missing image URL', 502, cors);
+    throw new Error('Firefly response missing image URL');
+  }
+  return image.url;
+}
+
+async function handleFireflyGenerate(request, env, cors) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError('Invalid JSON body', 400, cors);
+  }
+
+  const { prompt, size } = parsePromptAndSize(body);
+  if (!prompt) return jsonError('Missing prompt', 400, cors);
+
+  let url;
+  try {
+    url = await fireflyGenerate(prompt, size, env);
+  } catch (e) {
+    return jsonError(e.message, 502, cors);
   }
 
   return new Response(
-    JSON.stringify({ url: image.url }),
+    JSON.stringify({ url }),
     { status: 200, headers: { 'Content-Type': 'application/json', ...cors } },
   );
+}
+
+// Same as handleFireflyGenerate, but streams the image bytes back directly instead of a
+// presigned URL — used by the ai-image block, which re-uploads the bytes into AEM's DAM
+// and needs them client-side without depending on the Firefly URL's ~1h expiry or S3 CORS.
+async function handleFireflyGenerateImage(request, env, cors) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError('Invalid JSON body', 400, cors);
+  }
+
+  const { prompt, size } = parsePromptAndSize(body);
+  if (!prompt) return jsonError('Missing prompt', 400, cors);
+
+  let url;
+  try {
+    url = await fireflyGenerate(prompt, size, env);
+  } catch (e) {
+    return jsonError(e.message, 502, cors);
+  }
+
+  const imageRes = await fetch(url);
+  if (!imageRes.ok) {
+    return jsonError(`Failed to download generated image: ${imageRes.status}`, 502, cors);
+  }
+
+  return new Response(imageRes.body, {
+    status: 200,
+    headers: {
+      'Content-Type': imageRes.headers.get('Content-Type') || 'image/png',
+      ...cors,
+    },
+  });
 }
 
 async function handleForecast(request, cors) {
@@ -202,6 +246,11 @@ export default {
     if (pathname === '/api/firefly/generate') {
       if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
       return handleFireflyGenerate(request, env, cors);
+    }
+
+    if (pathname === '/api/firefly/generate-image') {
+      if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+      return handleFireflyGenerateImage(request, env, cors);
     }
 
     if (request.method !== 'GET') {

@@ -54,7 +54,8 @@
         "teaser",
         "weather",
         "rates",
-        "firefly"
+        "firefly",
+        "ai-image"
       ]
     }
   ]

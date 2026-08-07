@@ -1,0 +1,38 @@
+.ai-image picture img {
+  display: block;
+  width: 100%;
+  border-radius: 12px;
+}
+
+.ai-image-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.ai-image-preview {
+  display: block;
+  max-width: 100%;
+  border-radius: 12px;
+}
+
+.ai-image-generate {
+  padding: 8px 20px;
+  border: 1px solid #000;
+  border-radius: 999px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.ai-image-generate:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ai-image-status {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
