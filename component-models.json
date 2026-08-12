@@ -136,6 +136,10 @@
           {
             "name": "Highlight",
             "value": "highlight"
+          },
+          {
+            "name": "Side by side",
+            "value": "side-by-side"
           }
         ]
       }

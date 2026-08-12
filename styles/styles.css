@@ -255,3 +255,27 @@ main .section.highlight {
   margin: 0;
   padding: 40px 0;
 }
+
+/* lays sibling blocks/content within the section out in a row instead of stacked */
+main .section.side-by-side {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  max-width: 1200px;
+  margin: 40px auto;
+  padding: 0 24px;
+}
+
+main .section.side-by-side > div {
+  flex: 1;
+  min-width: 280px;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+@media (width >= 900px) {
+  main .section.side-by-side {
+    padding: 0 32px;
+  }
+}
