@@ -155,6 +155,114 @@ async function fireflyGenerate(prompt, size, env) {
   return image.url;
 }
 
+async function uploadImageToFirefly(bytes, mimeType, env) {
+  const token = await getFireflyToken(env);
+
+  const res = await fetch('https://firefly-api.adobe.io/v2/storage/image', {
+    method: 'POST',
+    headers: {
+      'Content-Type': mimeType,
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+      'x-api-key': env.FIREFLY_CLIENT_ID,
+    },
+    body: bytes,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Firefly image upload failed: ${res.status}`);
+  }
+
+  const data = await res.json();
+  const id = data?.images?.[0]?.id;
+  if (!id) {
+    throw new Error('Firefly upload response missing image id');
+  }
+  return id;
+}
+
+// Structure Reference: generates a new scene guided by the uploaded product photo's
+// shape/composition, so the product reads as "the same" while the prompt drives context/style.
+async function fireflyGenerateVariant(prompt, size, uploadId, strength, env) {
+  const [width, height] = size.split('x').map(Number);
+  const token = await getFireflyToken(env);
+
+  const res = await fetch('https://firefly-api.adobe.io/v3/images/generate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+      'x-api-key': env.FIREFLY_CLIENT_ID,
+    },
+    body: JSON.stringify({
+      prompt,
+      size: { width, height },
+      numVariations: 1,
+      contentClass: 'photo',
+      structure: {
+        strength,
+        imageReference: { source: { uploadId } },
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Firefly generate failed: ${res.status}`);
+  }
+
+  const data = await res.json();
+  const image = data?.outputs?.[0]?.image;
+  if (!image?.url) {
+    throw new Error('Firefly response missing image URL');
+  }
+  return image.url;
+}
+
+async function handleFireflyGenerateVariant(request, env, cors) {
+  let form;
+  try {
+    form = await request.formData();
+  } catch {
+    return jsonError('Invalid form data', 400, cors);
+  }
+
+  const prompt = form.get('prompt')?.toString().trim();
+  if (!prompt) return jsonError('Missing prompt', 400, cors);
+
+  const size = FIREFLY_VALID_SIZES.includes(form.get('size')) ? form.get('size') : '1024x1024';
+
+  const strengthRaw = Number(form.get('strength'));
+  const strength = Number.isFinite(strengthRaw) ? Math.min(100, Math.max(1, strengthRaw)) : 65;
+
+  const image = form.get('image');
+  if (!(image instanceof File) || image.size === 0) {
+    return jsonError('Missing image', 400, cors);
+  }
+
+  let url;
+  try {
+    const bytes = await image.arrayBuffer();
+    const uploadId = await uploadImageToFirefly(bytes, image.type || 'image/jpeg', env);
+    url = await fireflyGenerateVariant(prompt, size, uploadId, strength, env);
+  } catch (e) {
+    return jsonError(e.message, 502, cors);
+  }
+
+  const imageRes = await fetch(url);
+  if (!imageRes.ok) {
+    return jsonError(`Failed to download generated image: ${imageRes.status}`, 502, cors);
+  }
+
+  return new Response(imageRes.body, {
+    status: 200,
+    headers: {
+      'Content-Type': imageRes.headers.get('Content-Type') || 'image/png',
+      ...cors,
+    },
+  });
+}
+
 async function handleFireflyGenerate(request, env, cors) {
   let body;
   try {
@@ -252,6 +360,11 @@ export default {
     if (pathname === '/api/firefly/generate-image') {
       if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
       return handleFireflyGenerateImage(request, env, cors);
+    }
+
+    if (pathname === '/api/firefly/generate-variant') {
+      if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+      return handleFireflyGenerateVariant(request, env, cors);
     }
 
     if (request.method !== 'GET') {

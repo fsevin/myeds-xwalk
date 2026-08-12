@@ -1,74 +1,7 @@
 import { createOptimizedPicture } from '../../scripts/aem.js';
+import { getCsrfToken, uploadToDam, patchBlockImage } from '../../scripts/dam-persist.js';
 
 const EDGE_ORIGIN = window.location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://myeds-xwalk-api.fsevin.workers.dev';
-
-// Site's DAM convention mirrors its content root (/content/myeds-xwalk/ per paths.json).
-const DAM_FOLDER = '/content/dam/myeds-xwalk/generated';
-
-async function getCsrfToken() {
-  const res = await fetch('/libs/granite/csrf/token.json', { credentials: 'include' });
-  if (!res.ok) throw new Error(`CSRF token request failed: ${res.status}`);
-  const { token } = await res.json();
-  return token;
-}
-
-async function createDamFolder(csrfToken) {
-  const apiPath = DAM_FOLDER.replace('/content/dam', '/api/assets');
-  await fetch(apiPath, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', 'CSRF-Token': csrfToken },
-    body: JSON.stringify({ class: 'assetFolder', properties: { title: 'Generated' } }),
-  });
-}
-
-// AEMaaCS direct binary upload: initiateUpload -> PUT bytes to blob storage -> completeUpload.
-async function uploadToDam(blob, mimeType, csrfToken) {
-  const ext = mimeType === 'image/jpeg' ? 'jpg' : 'png';
-  const fileName = `firefly-${Date.now()}.${ext}`;
-
-  const initiate = () => fetch(`${DAM_FOLDER}.initiateUpload.json`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-Token': csrfToken },
-    body: new URLSearchParams({ fileName, fileSize: String(blob.size) }),
-  });
-
-  let initRes = await initiate();
-  if (initRes.status === 404) {
-    await createDamFolder(csrfToken);
-    initRes = await initiate();
-  }
-  if (!initRes.ok) throw new Error(`initiateUpload failed: ${initRes.status}`);
-
-  const initData = await initRes.json();
-  const file = initData.files?.[0];
-  if (!file?.uploadURIs?.[0]) throw new Error('initiateUpload response missing upload URI');
-
-  const putRes = await fetch(file.uploadURIs[0], { method: 'PUT', body: blob });
-  if (!putRes.ok) throw new Error(`Blob upload failed: ${putRes.status}`);
-
-  const completeURI = file.completeURI || initData.completeURI;
-  const completeRes = await fetch(completeURI, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-Token': csrfToken },
-    body: new URLSearchParams({ fileName, mimeType, uploadToken: file.uploadToken }),
-  });
-  if (!completeRes.ok) throw new Error(`completeUpload failed: ${completeRes.status}`);
-
-  return `${DAM_FOLDER}/${fileName}`;
-}
-
-async function patchBlockImage(resourcePath, assetPath, csrfToken) {
-  const res = await fetch(resourcePath, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-Token': csrfToken },
-    body: new URLSearchParams({ image: assetPath }),
-  });
-  if (!res.ok) throw new Error(`Failed to update block content: ${res.status}`);
-}
 
 async function generateAndPersist(preview, prompt, size, resource) {
   const res = await fetch(`${EDGE_ORIGIN}/api/firefly/generate-image`, {
@@ -85,11 +18,11 @@ async function generateAndPersist(preview, prompt, size, resource) {
   preview.hidden = false;
 
   const csrfToken = await getCsrfToken();
-  const assetPath = await uploadToDam(blob, mimeType, csrfToken);
+  const assetPath = await uploadToDam(blob, mimeType, csrfToken, 'firefly');
 
   // data-aue-resource looks like urn:aemconnection:/content/myeds-xwalk/.../firefly
   const resourcePath = resource.replace('urn:aemconnection:', '');
-  await patchBlockImage(resourcePath, assetPath, csrfToken);
+  await patchBlockImage(resourcePath, 'image', assetPath, csrfToken);
 }
 
 // Keyed by resource path — survives across the repeated decorate() calls Universal Editor

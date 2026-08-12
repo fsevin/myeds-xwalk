@@ -290,6 +290,53 @@
     ]
   },
   {
+    "id": "product-variant",
+    "fields": [
+      {
+        "component": "reference",
+        "name": "productImage",
+        "label": "Product image",
+        "valueType": "string",
+        "multi": false,
+        "required": true
+      },
+      {
+        "component": "richtext",
+        "name": "prompt",
+        "label": "Prompt",
+        "description": "Describe the variation, e.g. 'a Christmas edition with festive wrapping' or 'a version adapted for the Japanese market'",
+        "valueType": "string",
+        "required": true
+      },
+      {
+        "component": "select",
+        "name": "aspectRatio",
+        "label": "Aspect ratio",
+        "valueType": "string",
+        "options": [
+          {
+            "name": "Square (1024x1024)",
+            "value": "1024x1024"
+          },
+          {
+            "name": "Landscape (1344x768)",
+            "value": "1344x768"
+          },
+          {
+            "name": "Portrait (768x1344)",
+            "value": "768x1344"
+          }
+        ]
+      },
+      {
+        "component": "reference",
+        "name": "resultImage",
+        "label": "Generated variant",
+        "valueType": "string"
+      }
+    ]
+  },
+  {
     "id": "rates",
     "fields": []
   },

@@ -1,0 +1,22 @@
+.product-variant picture img {
+  display: block;
+  width: 100%;
+  border-radius: 12px;
+}
+
+.product-variant-preview {
+  display: block;
+  max-width: 100%;
+  margin-top: 12px;
+  border-radius: 12px;
+}
+
+.product-variant-preview[hidden] {
+  display: none;
+}
+
+.product-variant-status {
+  margin: 12px 0 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
