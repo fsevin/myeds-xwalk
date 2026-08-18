@@ -1,0 +1,94 @@
+<mxfile host="Electron" agent="Mozilla/5.0">
+  <diagram id="eds-worker-local-prod" name="EDS Worker - Local vs Production">
+    <mxGraphModel dx="1528" dy="893" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontSize=24;fontStyle=1;fontColor=#222222;align=left;verticalAlign=middle;" value="EDS Block + Edge Worker — Local Development vs Cloudflare Production" vertex="1">
+          <mxGeometry height="45" width="1520" x="40" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="localLane" parent="1" style="swimlane;html=1;rounded=1;horizontal=1;startSize=38;fillColor=#F7F8FA;swimlaneFillColor=#E8F1FB;strokeColor=#8A98A8;fontSize=16;fontStyle=1;fontColor=#1D2733;" value="LOCAL DEVELOPMENT" vertex="1">
+          <mxGeometry height="720" width="760" x="40" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="localBlock" parent="localLane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontSize=16;fontStyle=1;fontColor=#1D2733;align=center;verticalAlign=middle;" value="EDS Block&lt;br&gt;&lt;font style=&#39;font-size:12px&#39;&gt;http://localhost:3000&lt;/font&gt;" vertex="1">
+          <mxGeometry height="82" width="190" x="70" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="localWorker" parent="localLane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7E6;strokeColor=#D97706;strokeWidth=2;fontSize=16;fontStyle=1;fontColor=#1D2733;align=center;verticalAlign=middle;" value="Cloudflare Worker (local)&lt;br&gt;&lt;font style=&#39;font-size:12px&#39;&gt;wrangler dev&lt;br&gt;localhost:8787&lt;/font&gt;" vertex="1">
+          <mxGeometry height="100" width="200" x="320" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="localApi" parent="localLane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5C6B7A;strokeWidth=2;fontSize=16;fontStyle=1;fontColor=#1D2733;align=center;verticalAlign=middle;" value="External API&lt;br&gt;&lt;font style=&#39;font-size:12px&#39;&gt;Firefly / AEM / other API&lt;/font&gt;" vertex="1">
+          <mxGeometry height="100" width="130" x="580" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="localSecrets" parent="localLane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDECEC;strokeColor=#C62828;strokeWidth=1.5;fontSize=15;fontStyle=1;fontColor=#7A1A1A;align=center;verticalAlign=middle;" value=".dev.vars&lt;br&gt;&lt;font style=&#39;font-size:12px&#39;&gt;AEM_TOKEN / API secret&lt;br&gt;git-ignored&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="200" x="320" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="localWrangler" parent="localLane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5C6B7A;strokeWidth=1.5;fontSize=15;fontStyle=1;fontColor=#1D2733;align=center;verticalAlign=middle;" value="Wrangler CLI&lt;br&gt;&lt;font style=&#39;font-size:12px&#39;&gt;npx wrangler dev&lt;br&gt;npx wrangler tail&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="190" x="70" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="localNote" parent="localLane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF3FF;strokeColor=#8FBCEB;strokeWidth=1;fontSize=14;fontColor=#23415F;align=center;verticalAlign=middle;" value="Fast feedback loop&lt;br&gt;&lt;font style=&#39;font-size:12px&#39;&gt;Block → Worker → API&lt;br&gt;without deploying to Cloudflare&lt;/font&gt;" vertex="1">
+          <mxGeometry height="105" width="520" x="120" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="prodLane" parent="1" style="swimlane;html=1;rounded=1;horizontal=1;startSize=38;fillColor=#FAF9F7;swimlaneFillColor=#F3E8D7;strokeColor=#A49A8D;fontSize=16;fontStyle=1;fontColor=#1D2733;" value="CLOUDFLARE PRODUCTION" vertex="1">
+          <mxGeometry height="720" width="720" x="840" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="prodBlock" parent="prodLane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontSize=16;fontStyle=1;fontColor=#1D2733;align=center;verticalAlign=middle;" value="EDS Block&lt;br&gt;&lt;font style=&#39;font-size:12px&#39;&gt;AEM / aem.live / aem.page&lt;/font&gt;" vertex="1">
+          <mxGeometry height="82" width="190" x="55" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="prodWorker" parent="prodLane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7E6;strokeColor=#D97706;strokeWidth=2;fontSize=16;fontStyle=1;fontColor=#1D2733;align=center;verticalAlign=middle;" value="Cloudflare Worker&lt;br&gt;&lt;font style=&#39;font-size:12px&#39;&gt;workers.dev / custom route&lt;/font&gt;" vertex="1">
+          <mxGeometry height="100" width="205" x="275" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="prodApi" parent="prodLane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5C6B7A;strokeWidth=2;fontSize=16;fontStyle=1;fontColor=#1D2733;align=center;verticalAlign=middle;" value="External API&lt;br&gt;&lt;font style=&#39;font-size:12px&#39;&gt;Firefly / AEM / other API&lt;/font&gt;" vertex="1">
+          <mxGeometry height="100" width="150" x="515" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="prodSecrets" parent="prodLane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDECEC;strokeColor=#C62828;strokeWidth=1.5;fontSize=15;fontStyle=1;fontColor=#7A1A1A;align=center;verticalAlign=middle;" value="Cloudflare Secrets&lt;br&gt;&lt;font style=&#39;font-size:12px&#39;&gt;npx wrangler secret put&lt;br&gt;AEM_TOKEN / API key&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="205" x="275" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="prodDeploy" parent="prodLane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5C6B7A;strokeWidth=1.5;fontSize=15;fontStyle=1;fontColor=#1D2733;align=center;verticalAlign=middle;" value="CI / Developer&lt;br&gt;&lt;font style=&#39;font-size:12px&#39;&gt;npm run deploy:edge&lt;br&gt;wrangler deploy&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="190" x="55" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="prodCache" parent="prodLane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF3FF;strokeColor=#8FBCEB;strokeWidth=1.5;fontSize=15;fontStyle=1;fontColor=#23415F;align=center;verticalAlign=middle;" value="Cloudflare edge&lt;br&gt;&lt;font style=&#39;font-size:12px&#39;&gt;CORS + Cache API&lt;br&gt;reduce upstream calls&lt;/font&gt;" vertex="1">
+          <mxGeometry height="105" width="350" x="185" y="425" as="geometry" />
+        </mxCell>
+        <mxCell id="prodNote" parent="prodLane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EEF6EE;strokeColor=#8FAF8F;strokeWidth=1;fontSize=14;fontColor=#28502B;align=center;verticalAlign=middle;" value="Security boundary&lt;br&gt;&lt;font style=&#39;font-size:12px&#39;&gt;Secrets stay server-side; browser calls the Worker&lt;br&gt;instead of calling protected APIs directly.&lt;/font&gt;" vertex="1">
+          <mxGeometry height="85" width="540" x="90" y="575" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="localBlock" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#1473E6;strokeWidth=2;endArrow=block;" target="localWorker" value="HTTP fetch">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="localWorker" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#D97706;strokeWidth=2;endArrow=block;" target="localApi" value="API request">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="localApi" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#5C6B7A;strokeWidth=1.5;dashed=1;endArrow=block;" target="localWorker" value="returns JSON">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="localSecrets" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#C62828;strokeWidth=1.5;dashed=1;endArrow=block;" target="localWorker" value="load secret">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="localWrangler" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#5C6B7A;strokeWidth=1.5;dashed=1;endArrow=block;" target="localWorker" value="runs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="prodBlock" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#1473E6;strokeWidth=2;endArrow=block;" target="prodWorker" value="HTTPS fetch">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="prodWorker" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#D97706;strokeWidth=2;endArrow=block;" target="prodApi" value="API request">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="prodApi" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#5C6B7A;strokeWidth=1.5;dashed=1;endArrow=block;" target="prodWorker" value="JSON response">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="prodSecrets" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#C62828;strokeWidth=1.5;dashed=1;endArrow=block;" target="prodWorker" value="secret binding">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" edge="1" parent="1" source="prodDeploy" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#5C6B7A;strokeWidth=1.5;dashed=1;endArrow=block;" target="prodWorker" value="deploy">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" edge="1" parent="1" source="prodWorker" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#8FBCEB;strokeWidth=1.5;dashed=1;endArrow=block;" target="prodCache" value="cache + CORS">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontSize=13;fontColor=#5C6B7A;align=left;verticalAlign=middle;" value="&lt;b&gt;Legend&lt;/b&gt;&amp;nbsp;&amp;nbsp; Blue = EDS Block&amp;nbsp;&amp;nbsp; Orange = Worker&amp;nbsp;&amp;nbsp; Red = Secret storage&amp;nbsp;&amp;nbsp; Gray = API / tooling" vertex="1">
+          <mxGeometry height="35" width="1450" x="55" y="825" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
