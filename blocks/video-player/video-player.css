@@ -1,0 +1,6 @@
+.video-player video {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #000;
+}

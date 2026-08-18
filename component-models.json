@@ -379,6 +379,52 @@
     ]
   },
   {
+    "id": "video-player",
+    "fields": [
+      {
+        "component": "reference",
+        "valueType": "string",
+        "name": "video",
+        "label": "Video",
+        "description": "Select a video asset from the DAM",
+        "multi": false,
+        "required": true
+      },
+      {
+        "component": "reference",
+        "valueType": "string",
+        "name": "poster",
+        "label": "Poster image",
+        "description": "Optional thumbnail shown before the video plays",
+        "multi": false
+      },
+      {
+        "component": "multiselect",
+        "name": "classes",
+        "label": "Options",
+        "valueType": "string",
+        "options": [
+          {
+            "name": "Autoplay",
+            "value": "autoplay"
+          },
+          {
+            "name": "Loop",
+            "value": "loop"
+          },
+          {
+            "name": "Muted",
+            "value": "muted"
+          },
+          {
+            "name": "Hide controls",
+            "value": "hide-controls"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "id": "weather",
     "fields": [
       {
