@@ -11,13 +11,12 @@ async function generateImage(prompt, size) {
 }
 
 export default async function decorate(block) {
-  const prompt = block.querySelector('div:first-child p, div:first-child div')?.textContent?.trim()
-    || block.dataset.prompt
-    || '';
-
-  const aspectRatio = block.querySelector('div:nth-child(2) p, div:nth-child(2) div')?.textContent?.trim()
-    || block.dataset.aspectRatio
-    || '1024x1024';
+  // Model fields render as one top-level row per field, in field order (prompt, aspectRatio) —
+  // index directly rather than using nth-child descendant selectors, which Universal Editor's
+  // canvas can break by wrapping rich-text paragraphs in extra elements.
+  const [promptRow, aspectRatioRow] = block.children;
+  const prompt = promptRow?.textContent?.trim() || block.dataset.prompt || '';
+  const aspectRatio = aspectRatioRow?.textContent?.trim() || block.dataset.aspectRatio || '1024x1024';
 
   if (!prompt) {
     block.innerHTML = '<p class="firefly-error">Add a prompt to generate an image.</p>';

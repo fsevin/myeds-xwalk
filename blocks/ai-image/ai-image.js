@@ -35,8 +35,12 @@ export default async function decorate(block) {
   const picture = block.querySelector('picture');
   const resource = block.getAttribute('data-aue-resource');
 
-  const prompt = block.querySelector('div:first-child p, div:first-child div')?.textContent?.trim() || '';
-  const aspectRatio = block.querySelector('div:nth-child(2) p, div:nth-child(2) div')?.textContent?.trim() || '1024x1024';
+  // Model fields render as one top-level row per field, in field order (prompt, aspectRatio,
+  // image) — index directly rather than using nth-child descendant selectors, which Universal
+  // Editor's canvas can break by wrapping rich-text paragraphs in extra elements.
+  const [promptRow, aspectRatioRow] = block.children;
+  const prompt = promptRow?.textContent?.trim() || '';
+  const aspectRatio = aspectRatioRow?.textContent?.trim() || '1024x1024';
 
   block.replaceChildren();
 
