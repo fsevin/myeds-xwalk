@@ -35,7 +35,8 @@
           "options": [
             { "name": "Square (1024x1024)", "value": "1024x1024" },
             { "name": "Landscape (1344x768)", "value": "1344x768" },
-            { "name": "Portrait (768x1344)", "value": "768x1344" }
+            { "name": "Portrait (768x1344)", "value": "768x1344" },
+            { "name": "Widescreen 16:9 (2688x1536)", "value": "2688x1536" }
           ]
         },
         {

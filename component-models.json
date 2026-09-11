@@ -172,6 +172,10 @@
           {
             "name": "Portrait (768x1344)",
             "value": "768x1344"
+          },
+          {
+            "name": "Widescreen 16:9 (2688x1536)",
+            "value": "2688x1536"
           }
         ]
       },

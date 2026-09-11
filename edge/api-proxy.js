@@ -85,6 +85,7 @@ const FIREFLY_VALID_SIZES = [
   '1024x1024',
   '1344x768',
   '768x1344',
+  '2688x1536',
 ];
 
 // IMS access tokens live ~24h; cache in-isolate so we don't re-authenticate on every image request.
