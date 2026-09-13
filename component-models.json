@@ -366,6 +366,27 @@
         ]
       },
       {
+        "component": "select",
+        "name": "strength",
+        "label": "Structure match strength",
+        "description": "How closely the generated image preserves the original product's shape, proportions, and details. Higher = closer match to the source photo.",
+        "valueType": "string",
+        "options": [
+          {
+            "name": "Loose (40)",
+            "value": "40"
+          },
+          {
+            "name": "Balanced (65)",
+            "value": "65"
+          },
+          {
+            "name": "Strict (90)",
+            "value": "90"
+          }
+        ]
+      },
+      {
         "component": "reference",
         "name": "resultImage",
         "label": "Generated variant",

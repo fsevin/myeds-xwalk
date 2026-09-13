@@ -234,7 +234,7 @@ async function handleFireflyGenerateVariant(request, env, cors) {
   const size = FIREFLY_VALID_SIZES.includes(form.get('size')) ? form.get('size') : '1024x1024';
 
   const strengthRaw = Number(form.get('strength'));
-  const strength = Number.isFinite(strengthRaw) ? Math.min(100, Math.max(1, strengthRaw)) : 65;
+  const strength = Number.isFinite(strengthRaw) ? Math.min(100, Math.max(1, strengthRaw)) : 90;
 
   const image = form.get('image');
   if (!(image instanceof File) || image.size === 0) {
