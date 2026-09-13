@@ -126,7 +126,6 @@ function parsePromptAndSize(body) {
 }
 
 async function fireflyGenerate(prompt, size, env) {
-  const [width, height] = size.split('x').map(Number);
   const token = await getFireflyToken(env);
 
   const res = await fetch('https://firefly-api.adobe.io/v3/images/generate', {
@@ -139,7 +138,9 @@ async function fireflyGenerate(prompt, size, env) {
     },
     body: JSON.stringify({
       prompt,
-      size: { width, height },
+      modelId: 'firefly_image',
+      modelVersion: 'image5',
+      aspectRatio: sizeToAspectRatio(size),
       numVariations: 1,
     }),
   });
