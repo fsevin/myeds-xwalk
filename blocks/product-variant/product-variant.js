@@ -4,7 +4,7 @@ import { getCsrfToken, uploadToDam, patchBlockImage } from '../../scripts/dam-pe
 const EDGE_ORIGIN = window.location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://myeds-xwalk-api.fsevin.workers.dev';
 
 // Field order mirrors _product-variant.json: productImage, prompt, aspectRatio,
-// strength, resultImage — each field is a direct child div of the block.
+// resultImage — each field is a direct child div of the block.
 function fieldText(block, index) {
   return block.querySelector(`:scope > div:nth-child(${index}) p, :scope > div:nth-child(${index}) div`)?.textContent?.trim() || '';
 }
@@ -13,7 +13,7 @@ function fieldPicture(block, index) {
   return block.querySelector(`:scope > div:nth-child(${index}) picture`);
 }
 
-async function generateAndPersist(preview, sourceImg, prompt, size, strength, resource) {
+async function generateAndPersist(preview, sourceImg, prompt, size, resource) {
   const sourceRes = await fetch(sourceImg.src, { credentials: 'include' });
   if (!sourceRes.ok) throw new Error(`Failed to read product image: ${sourceRes.status}`);
   const sourceBlob = await sourceRes.blob();
@@ -22,7 +22,6 @@ async function generateAndPersist(preview, sourceImg, prompt, size, strength, re
   form.append('image', sourceBlob, 'product.jpg');
   form.append('prompt', prompt);
   form.append('size', size);
-  form.append('strength', strength);
 
   const res = await fetch(`${EDGE_ORIGIN}/api/firefly/generate-variant`, { method: 'POST', body: form });
   if (!res.ok) throw new Error(`Variant generation failed: ${res.status}`);
@@ -53,8 +52,7 @@ export default async function decorate(block) {
   const sourcePicture = fieldPicture(block, 1);
   const prompt = fieldText(block, 2);
   const aspectRatio = fieldText(block, 3) || '1024x1024';
-  const strength = fieldText(block, 4) || '90';
-  const resultPicture = fieldPicture(block, 5);
+  const resultPicture = fieldPicture(block, 4);
 
   block.replaceChildren();
 
@@ -106,7 +104,7 @@ export default async function decorate(block) {
     inFlight.add(resource);
     status.textContent = 'Generating variant…';
     try {
-      await generateAndPersist(preview, sourceImg, prompt, aspectRatio, strength, resource);
+      await generateAndPersist(preview, sourceImg, prompt, aspectRatio, resource);
       status.textContent = 'Variant saved — reloading…';
       window.location.reload();
     } catch (e) {

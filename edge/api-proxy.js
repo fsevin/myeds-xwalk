@@ -182,10 +182,18 @@ async function uploadImageToFirefly(bytes, mimeType, env) {
   return id;
 }
 
-// Structure Reference: generates a new scene guided by the uploaded product photo's
-// shape/composition, so the product reads as "the same" while the prompt drives context/style.
-async function fireflyGenerateVariant(prompt, size, uploadId, strength, env) {
+// Maps the block's WxH size options onto Image5's coarse aspectRatio classes.
+function sizeToAspectRatio(size) {
   const [width, height] = size.split('x').map(Number);
+  if (width === height) return '1:1';
+  return width > height ? '16:9' : '9:16';
+}
+
+// Image5 reference: conditions generation on the uploaded product photo (color, shape,
+// general design) via referenceBlobs, so the product reads as "the same" while the prompt
+// drives the new scene. Unlike the old Structure Reference, this isn't pixel-preserving —
+// fine detail like small logos can still be redrawn.
+async function fireflyGenerateVariant(prompt, size, uploadId, env) {
   const token = await getFireflyToken(env);
 
   const res = await fetch('https://firefly-api.adobe.io/v3/images/generate', {
@@ -198,13 +206,12 @@ async function fireflyGenerateVariant(prompt, size, uploadId, strength, env) {
     },
     body: JSON.stringify({
       prompt,
-      size: { width, height },
+      modelId: 'firefly_image',
+      modelVersion: 'image5',
+      aspectRatio: sizeToAspectRatio(size),
       numVariations: 1,
       contentClass: 'photo',
-      structure: {
-        strength,
-        imageReference: { source: { uploadId } },
-      },
+      referenceBlobs: [{ source: { uploadId }, usage: 'general' }],
     }),
   });
 
@@ -233,9 +240,6 @@ async function handleFireflyGenerateVariant(request, env, cors) {
 
   const size = FIREFLY_VALID_SIZES.includes(form.get('size')) ? form.get('size') : '1024x1024';
 
-  const strengthRaw = Number(form.get('strength'));
-  const strength = Number.isFinite(strengthRaw) ? Math.min(100, Math.max(1, strengthRaw)) : 90;
-
   const image = form.get('image');
   if (!(image instanceof File) || image.size === 0) {
     return jsonError('Missing image', 400, cors);
@@ -245,7 +249,7 @@ async function handleFireflyGenerateVariant(request, env, cors) {
   try {
     const bytes = await image.arrayBuffer();
     const uploadId = await uploadImageToFirefly(bytes, image.type || 'image/jpeg', env);
-    url = await fireflyGenerateVariant(prompt, size, uploadId, strength, env);
+    url = await fireflyGenerateVariant(prompt, size, uploadId, env);
   } catch (e) {
     return jsonError(e.message, 502, cors);
   }
