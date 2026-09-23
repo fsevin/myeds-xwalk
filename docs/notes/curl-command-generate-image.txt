@@ -1,0 +1,5 @@
+curl -s -o /tmp/racket-variant.jpg -w "HTTP %{http_code}\n" --max-time 90 \
+  -X POST https://myeds-xwalk-api.fsevin.workers.dev/api/firefly/generate-variant \
+  -F "image=@docs/head-racket.jpg;type=image/jpeg" \
+  -F "prompt=display this tennis racquet on a festive Christmas display with a decorated tree, string lights, and wrapped gift boxes in the background, holiday promotional style" \
+  -F "size=1024x1024"
