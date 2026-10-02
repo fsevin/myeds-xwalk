@@ -1,12 +1,19 @@
 .ai-image picture img {
   display: block;
   width: 100%;
+
+  /* Cap height so tall aspect ratios (square/portrait) never dominate the page like a
+     banner shouldn't — wide/short images (e.g. the Banner option) stay unaffected. */
+  max-height: min(60vh, 600px);
+  object-fit: cover;
   border-radius: 12px;
 }
 
 .ai-image-preview {
   display: block;
   max-width: 100%;
+  max-height: min(60vh, 600px);
+  object-fit: cover;
   margin-top: 12px;
   border-radius: 12px;
 }
