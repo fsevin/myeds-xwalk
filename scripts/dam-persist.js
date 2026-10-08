@@ -18,9 +18,20 @@ async function createDamFolder(csrfToken) {
   });
 }
 
+const EXT_BY_MIME = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'video/mp4': 'mp4',
+};
+
+function extensionForMimeType(mimeType) {
+  if (EXT_BY_MIME[mimeType]) return EXT_BY_MIME[mimeType];
+  return mimeType.startsWith('video/') ? 'mp4' : 'png';
+}
+
 // AEMaaCS direct binary upload: initiateUpload -> PUT bytes to blob storage -> completeUpload.
 export async function uploadToDam(blob, mimeType, csrfToken, filePrefix) {
-  const ext = mimeType === 'image/jpeg' ? 'jpg' : 'png';
+  const ext = extensionForMimeType(mimeType);
   const fileName = `${filePrefix}-${Date.now()}.${ext}`;
 
   const initiate = () => fetch(`${DAM_FOLDER}.initiateUpload.json`, {

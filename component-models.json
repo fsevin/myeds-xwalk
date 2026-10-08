@@ -331,6 +331,53 @@
     ]
   },
   {
+    "id": "product-variant-video",
+    "fields": [
+      {
+        "component": "reference",
+        "name": "productImage",
+        "label": "Product image",
+        "valueType": "string",
+        "multi": false,
+        "required": true
+      },
+      {
+        "component": "richtext",
+        "name": "prompt",
+        "label": "Prompt",
+        "description": "Describe the video action/scene, e.g. 'slowly rotating on a marble pedestal with soft studio lighting'",
+        "valueType": "string",
+        "required": true
+      },
+      {
+        "component": "select",
+        "name": "videoSize",
+        "label": "Video size",
+        "valueType": "string",
+        "options": [
+          {
+            "name": "Landscape 16:9 (1920x1080)",
+            "value": "1920x1080"
+          },
+          {
+            "name": "Portrait 9:16 (1080x1920)",
+            "value": "1080x1920"
+          },
+          {
+            "name": "Square 1:1 (1080x1080)",
+            "value": "1080x1080"
+          }
+        ]
+      },
+      {
+        "component": "reference",
+        "name": "resultVideo",
+        "label": "Generated video",
+        "valueType": "string"
+      }
+    ]
+  },
+  {
     "id": "product-variant",
     "fields": [
       {

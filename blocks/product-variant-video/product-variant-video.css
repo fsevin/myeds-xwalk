@@ -1,0 +1,25 @@
+.product-variant-video picture img {
+  display: block;
+  width: 100%;
+  border-radius: 12px;
+}
+
+.product-variant-video video {
+  display: block;
+  max-width: 100%;
+  border-radius: 12px;
+}
+
+.product-variant-video-preview {
+  margin-top: 12px;
+}
+
+.product-variant-video-preview[hidden] {
+  display: none;
+}
+
+.product-variant-video-status {
+  margin: 12px 0 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+}

@@ -88,6 +88,25 @@ const FIREFLY_VALID_SIZES = [
   '2688x1536',
 ];
 
+// Image5 is only exposed through the async v4 endpoint (there is no sync v5/v4 endpoint);
+// the model is selected via this header rather than a body field.
+const FIREFLY_MODEL_VERSION = 'image5';
+const FIREFLY_JOB_POLL_INTERVAL_MS = 1500;
+const FIREFLY_JOB_POLL_TIMEOUT_MS = 60_000;
+
+// video1_standard's supported sizes per Firefly's video usage notes — one preset per
+// aspect ratio, matching the options exposed on the product-variant-video block.
+const FIREFLY_VIDEO_VALID_SIZES = [
+  '1920x1080',
+  '1080x1920',
+  '1080x1080',
+];
+const FIREFLY_VIDEO_MODEL_VERSION = 'video1_standard';
+// Video jobs render a 5s clip and routinely take a minute or two — poll less often and
+// over a much longer window than the image job above.
+const FIREFLY_VIDEO_JOB_POLL_INTERVAL_MS = 6000;
+const FIREFLY_VIDEO_JOB_POLL_TIMEOUT_MS = 180_000;
+
 // IMS access tokens live ~24h; cache in-isolate so we don't re-authenticate on every image request.
 let cachedImsToken = null;
 let cachedImsTokenExpiry = 0;
@@ -125,36 +144,101 @@ function parsePromptAndSize(body) {
   return { prompt, size };
 }
 
-async function fireflyGenerate(prompt, size, env) {
+// Maps the block's WxH size options onto Image5's coarse aspectRatio classes. Only used for
+// pure text-to-image generation — see fireflyGenerateVariant for why reference-image requests
+// can't use this.
+function sizeToAspectRatio(size) {
+  const [width, height] = size.split('x').map(Number);
+  if (width === height) return '1:1';
+  return width > height ? '16:9' : '9:16';
+}
+
+// Image5 only exists behind the async v4 endpoint — there's no sync v4/v5 "generate" call.
+// Every request accepted (202) returns a jobId/statusUrl that must be polled until the job
+// reports succeeded/failed/cancelled/timeout.
+async function pollFireflyJob(
+  statusUrl,
+  token,
+  env,
+  pollIntervalMs = FIREFLY_JOB_POLL_INTERVAL_MS,
+  pollTimeoutMs = FIREFLY_JOB_POLL_TIMEOUT_MS,
+) {
+  const deadline = Date.now() + pollTimeoutMs;
+
+  while (Date.now() < deadline) {
+    // Each iteration depends on the previous poll's outcome (and the delay below) before
+    // deciding whether to continue — this is inherently sequential, not a batch of
+    // independent requests, so looped awaits are intentional here.
+    // eslint-disable-next-line no-await-in-loop
+    const res = await fetch(statusUrl, {
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+        'x-api-key': env.FIREFLY_CLIENT_ID,
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error(`Firefly job status check failed: ${res.status}`);
+    }
+
+    // eslint-disable-next-line no-await-in-loop
+    const data = await res.json();
+
+    if (data.status === 'succeeded') {
+      const image = data.result?.outputs?.[0]?.image;
+      if (!image?.url) {
+        throw new Error('Firefly job succeeded but response is missing image URL');
+      }
+      return image.url;
+    }
+
+    if (['failed', 'cancelled', 'timeout'].includes(data.status)) {
+      throw new Error(`Firefly job ${data.status}: ${data.message || data.error_code || 'unknown error'}`);
+    }
+
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((resolve) => { setTimeout(resolve, pollIntervalMs); });
+  }
+
+  throw new Error('Firefly job timed out waiting for a result');
+}
+
+async function submitFireflyJob(payload, env) {
   const token = await getFireflyToken(env);
 
-  const res = await fetch('https://firefly-api.adobe.io/v3/images/generate', {
+  const res = await fetch('https://firefly-api.adobe.io/v4/images/generate-async', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
       Authorization: `Bearer ${token}`,
       'x-api-key': env.FIREFLY_CLIENT_ID,
+      'x-model-version': FIREFLY_MODEL_VERSION,
     },
-    body: JSON.stringify({
-      prompt,
-      modelId: 'firefly_image',
-      modelVersion: 'image5',
-      aspectRatio: sizeToAspectRatio(size),
-      numVariations: 1,
-    }),
+    body: JSON.stringify(payload),
   });
 
-  if (!res.ok) {
+  if (res.status !== 202) {
     throw new Error(`Firefly generate failed: ${res.status}`);
   }
 
-  const data = await res.json();
-  const image = data?.outputs?.[0]?.image;
-  if (!image?.url) {
-    throw new Error('Firefly response missing image URL');
+  const { statusUrl } = await res.json();
+  if (!statusUrl) {
+    throw new Error('Firefly response missing statusUrl');
   }
-  return image.url;
+
+  return pollFireflyJob(statusUrl, token, env);
+}
+
+async function fireflyGenerate(prompt, size, env) {
+  return submitFireflyJob({
+    prompt,
+    modelId: 'firefly_image',
+    aspectRatio: sizeToAspectRatio(size),
+    numVariations: 1,
+    referenceBlobs: [],
+  }, env);
 }
 
 async function uploadImageToFirefly(bytes, mimeType, env) {
@@ -183,49 +267,20 @@ async function uploadImageToFirefly(bytes, mimeType, env) {
   return id;
 }
 
-// Maps the block's WxH size options onto Image5's coarse aspectRatio classes.
-function sizeToAspectRatio(size) {
-  const [width, height] = size.split('x').map(Number);
-  if (width === height) return '1:1';
-  return width > height ? '16:9' : '9:16';
-}
-
 // Image5 reference: conditions generation on the uploaded product photo (color, shape,
 // general design) via referenceBlobs, so the product reads as "the same" while the prompt
 // drives the new scene. Unlike the old Structure Reference, this isn't pixel-preserving —
-// fine detail like small logos can still be redrawn.
-async function fireflyGenerateVariant(prompt, size, uploadId, env) {
-  const token = await getFireflyToken(env);
-
-  const res = await fetch('https://firefly-api.adobe.io/v3/images/generate', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
-      'x-api-key': env.FIREFLY_CLIENT_ID,
-    },
-    body: JSON.stringify({
-      prompt,
-      modelId: 'firefly_image',
-      modelVersion: 'image5',
-      aspectRatio: sizeToAspectRatio(size),
-      numVariations: 1,
-      contentClass: 'photo',
-      referenceBlobs: [{ source: { uploadId }, usage: 'general' }],
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`Firefly generate failed: ${res.status}`);
-  }
-
-  const data = await res.json();
-  const image = data?.outputs?.[0]?.image;
-  if (!image?.url) {
-    throw new Error('Firefly response missing image URL');
-  }
-  return image.url;
+// fine detail like small logos can still be redrawn. Per Adobe's spec, aspectRatio must be
+// omitted (or "auto") whenever referenceBlobs is populated, so the block's size field no
+// longer has any effect here — the output dimensions follow the reference image instead.
+async function fireflyGenerateVariant(prompt, uploadId, env) {
+  return submitFireflyJob({
+    prompt,
+    modelId: 'firefly_image',
+    aspectRatio: 'auto',
+    numVariations: 1,
+    referenceBlobs: [{ source: { uploadId }, usage: 'general' }],
+  }, env);
 }
 
 async function handleFireflyGenerateVariant(request, env, cors) {
@@ -239,8 +294,9 @@ async function handleFireflyGenerateVariant(request, env, cors) {
   const prompt = form.get('prompt')?.toString().trim();
   if (!prompt) return jsonError('Missing prompt', 400, cors);
 
-  const size = FIREFLY_VALID_SIZES.includes(form.get('size')) ? form.get('size') : '1024x1024';
-
+  // Note: Image5's reference-image mode always derives output dimensions from the uploaded
+  // image (aspectRatio forced to "auto" — see fireflyGenerateVariant), so a 'size' form field
+  // is no longer read here; it has no effect on the generated variant.
   const image = form.get('image');
   if (!(image instanceof File) || image.size === 0) {
     return jsonError('Missing image', 400, cors);
@@ -250,7 +306,7 @@ async function handleFireflyGenerateVariant(request, env, cors) {
   try {
     const bytes = await image.arrayBuffer();
     const uploadId = await uploadImageToFirefly(bytes, image.type || 'image/jpeg', env);
-    url = await fireflyGenerateVariant(prompt, size, uploadId, env);
+    url = await fireflyGenerateVariant(prompt, uploadId, env);
   } catch (e) {
     return jsonError(e.message, 502, cors);
   }
@@ -264,6 +320,102 @@ async function handleFireflyGenerateVariant(request, env, cors) {
     status: 200,
     headers: {
       'Content-Type': imageRes.headers.get('Content-Type') || 'image/png',
+      ...cors,
+    },
+  });
+}
+
+// Video analog of fireflyGenerateVariant: anchors video1_standard's first frame (placement
+// position 0) on the uploaded product photo via /v3/videos/generate, instead of Image5's
+// referenceBlobs. cameraMotion/shotSize/shotAngle/promptStyle are pinned to the values
+// verified against the sandbox Firefly Video Generation Postman collection rather than
+// exposed as block fields, since Adobe hasn't published the full enum list for them yet.
+async function submitFireflyVideoJob(prompt, uploadId, size, env) {
+  const token = await getFireflyToken(env);
+  const [width, height] = size.split('x').map(Number);
+
+  const res = await fetch('https://firefly-api.adobe.io/v3/videos/generate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+      'x-api-key': env.FIREFLY_CLIENT_ID,
+      'x-model-version': FIREFLY_VIDEO_MODEL_VERSION,
+    },
+    body: JSON.stringify({
+      prompt,
+      image: {
+        conditions: [{ source: { uploadId }, placement: { position: 0 } }],
+      },
+      sizes: [{ width, height }],
+      videoSettings: {
+        cameraMotion: 'camera zoom in',
+        shotSize: 'medium shot',
+        shotAngle: 'eye_level shot',
+        promptStyle: 'cinematic',
+      },
+    }),
+  });
+
+  if (res.status !== 202) {
+    throw new Error(`Firefly video generate failed: ${res.status}`);
+  }
+
+  const { statusUrl } = await res.json();
+  if (!statusUrl) {
+    throw new Error('Firefly video response missing statusUrl');
+  }
+
+  // Note: the job result reuses the generic `image` field name even for video output —
+  // result.outputs[0].image.url actually points at the generated .mp4, which is why
+  // pollFireflyJob (shared with the image flow) doesn't need a video-specific variant.
+  return pollFireflyJob(
+    statusUrl,
+    token,
+    env,
+    FIREFLY_VIDEO_JOB_POLL_INTERVAL_MS,
+    FIREFLY_VIDEO_JOB_POLL_TIMEOUT_MS,
+  );
+}
+
+async function handleFireflyGenerateVariantVideo(request, env, cors) {
+  let form;
+  try {
+    form = await request.formData();
+  } catch {
+    return jsonError('Invalid form data', 400, cors);
+  }
+
+  const prompt = form.get('prompt')?.toString().trim();
+  if (!prompt) return jsonError('Missing prompt', 400, cors);
+
+  const sizeRaw = form.get('size')?.toString();
+  const size = FIREFLY_VIDEO_VALID_SIZES.includes(sizeRaw) ? sizeRaw : FIREFLY_VIDEO_VALID_SIZES[0];
+
+  const image = form.get('image');
+  if (!(image instanceof File) || image.size === 0) {
+    return jsonError('Missing image', 400, cors);
+  }
+
+  let url;
+  try {
+    const bytes = await image.arrayBuffer();
+    const uploadId = await uploadImageToFirefly(bytes, image.type || 'image/jpeg', env);
+    url = await submitFireflyVideoJob(prompt, uploadId, size, env);
+  } catch (e) {
+    return jsonError(e.message, 502, cors);
+  }
+
+  const videoRes = await fetch(url);
+  if (!videoRes.ok) {
+    return jsonError(`Failed to download generated video: ${videoRes.status}`, 502, cors);
+  }
+
+  return new Response(videoRes.body, {
+    status: 200,
+    headers: {
+      'Content-Type': videoRes.headers.get('Content-Type') || 'video/mp4',
       ...cors,
     },
   });
@@ -371,6 +523,11 @@ export default {
     if (pathname === '/api/firefly/generate-variant') {
       if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
       return handleFireflyGenerateVariant(request, env, cors);
+    }
+
+    if (pathname === '/api/firefly/generate-variant-video') {
+      if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+      return handleFireflyGenerateVariantVideo(request, env, cors);
     }
 
     if (request.method !== 'GET') {
