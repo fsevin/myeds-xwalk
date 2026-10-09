@@ -1,17 +1,27 @@
-.ai-image picture img,
-.ai-image-preview {
+.ai-image picture img {
   display: block;
-  width: auto;
-  height: auto;
-  max-width: 100%;
+  width: 100%;
+
+  /* Cap height so tall aspect ratios (square/portrait) never dominate the page like a
+     banner shouldn't — wide/short images (e.g. the Banner option) stay unaffected. */
   max-height: min(60vh, 600px);
-  object-fit: contain;
-  margin-inline: auto;
+  object-fit: cover;
+
+  /* Anchor the crop to the top of the image rather than the center: portrait/square
+     generations usually frame a person starting at the top of the frame, so cropping
+     from the center chops off their head once the height cap kicks in. */
+  object-position: top;
   border-radius: 12px;
 }
 
 .ai-image-preview {
+  display: block;
+  max-width: 100%;
+  max-height: min(60vh, 600px);
+  object-fit: cover;
+  object-position: top;
   margin-top: 12px;
+  border-radius: 12px;
 }
 
 .ai-image-preview[hidden] {
