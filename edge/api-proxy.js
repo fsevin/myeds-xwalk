@@ -102,10 +102,12 @@ const FIREFLY_VIDEO_VALID_SIZES = [
   '1080x1080',
 ];
 const FIREFLY_VIDEO_MODEL_VERSION = 'video1_standard';
-// Video jobs render a 5s clip and routinely take a minute or two — poll less often and
-// over a much longer window than the image job above.
-const FIREFLY_VIDEO_JOB_POLL_INTERVAL_MS = 6000;
-const FIREFLY_VIDEO_JOB_POLL_TIMEOUT_MS = 180_000;
+// Video jobs render a 5s clip and routinely take a minute or two to complete — long enough
+// that polling for the result inside a single Worker invocation risks Cloudflare silently
+// canceling it before it can respond (an undocumented ~60-90s wall-clock limit on requests
+// that produce no response bytes). Polling is therefore driven by the client instead, via
+// short-lived /api/firefly/variant-video-status calls, so there's no server-side poll
+// interval/timeout to configure here — see product-variant-video.js for those constants.
 
 // IMS access tokens live ~24h; cache in-isolate so we don't re-authenticate on every image request.
 let cachedImsToken = null;
@@ -334,7 +336,10 @@ async function handleFireflyGenerateVariant(request, env, cors) {
 // referenceBlobs. cameraMotion/shotSize/shotAngle/promptStyle are pinned to the values
 // verified against the sandbox Firefly Video Generation Postman collection rather than
 // exposed as block fields, since Adobe hasn't published the full enum list for them yet.
-async function submitFireflyVideoJob(prompt, uploadId, size, env) {
+//
+// Unlike fireflyGenerate/fireflyGenerateVariant, this only submits the job and returns the
+// statusUrl — it does not poll to completion. See handleFireflyStartVariantVideo for why.
+async function startFireflyVideoJob(prompt, uploadId, size, env) {
   const token = await getFireflyToken(env);
   const [width, height] = size.split('x').map(Number);
 
@@ -371,18 +376,15 @@ async function submitFireflyVideoJob(prompt, uploadId, size, env) {
     throw new Error('Firefly video response missing statusUrl');
   }
 
-  // Video output lands under result.outputs[0].video.url rather than .image.url —
-  // pollFireflyJob checks both so it can stay shared between the image and video flows.
-  return pollFireflyJob(
-    statusUrl,
-    token,
-    env,
-    FIREFLY_VIDEO_JOB_POLL_INTERVAL_MS,
-    FIREFLY_VIDEO_JOB_POLL_TIMEOUT_MS,
-  );
+  return statusUrl;
 }
 
-async function handleFireflyGenerateVariantVideo(request, env, cors) {
+// Submits the job and responds immediately with the statusUrl to poll, instead of blocking
+// on the result the way handleFireflyGenerateVariant does for images. Video jobs routinely
+// take 60-180s, long enough that holding this request open server-side risks Cloudflare
+// canceling the Worker invocation before it can respond (see startFireflyVideoJob above) —
+// so the client polls handleFireflyVariantVideoStatus instead, in short-lived requests.
+async function handleFireflyStartVariantVideo(request, env, cors) {
   let form;
   try {
     form = await request.formData();
@@ -401,13 +403,77 @@ async function handleFireflyGenerateVariantVideo(request, env, cors) {
     return jsonError('Missing image', 400, cors);
   }
 
-  let url;
+  let statusUrl;
   try {
     const bytes = await image.arrayBuffer();
     const uploadId = await uploadImageToFirefly(bytes, image.type || 'image/jpeg', env);
-    url = await submitFireflyVideoJob(prompt, uploadId, size, env);
+    statusUrl = await startFireflyVideoJob(prompt, uploadId, size, env);
   } catch (e) {
     return jsonError(e.message, 502, cors);
+  }
+
+  return new Response(
+    JSON.stringify({ statusUrl }),
+    { status: 200, headers: { 'Content-Type': 'application/json', ...cors } },
+  );
+}
+
+// Status URLs Firefly hands back for polling live on a tenant-specific subdomain (observed:
+// firefly-<tenant-id>.adobe.io), not the fixed firefly-api.adobe.io host used to submit
+// jobs — so this is validated by hostname pattern rather than a fixed string prefix.
+function isTrustedFireflyStatusUrl(value) {
+  try {
+    const { protocol, hostname } = new URL(value);
+    return protocol === 'https:' && /^firefly(-[a-z0-9]+)?\.adobe\.io$/.test(hostname);
+  } catch {
+    return false;
+  }
+}
+
+// One-shot status check the client polls repeatedly (rather than the Worker looping over a
+// single request the way pollFireflyJob does for images) so each invocation stays short
+// enough to avoid the cancellation behavior described above. Only accepts Firefly's own
+// status URLs — statusUrl now round-trips through the client, and without this check a
+// caller could otherwise get this Worker to fetch an arbitrary URL using its Firefly token.
+async function handleFireflyVariantVideoStatus(request, env, cors) {
+  const { searchParams } = new URL(request.url);
+  const statusUrl = searchParams.get('statusUrl');
+  if (!statusUrl || !isTrustedFireflyStatusUrl(statusUrl)) {
+    return jsonError('Missing or invalid statusUrl', 400, cors);
+  }
+
+  const token = await getFireflyToken(env);
+  const res = await fetch(statusUrl, {
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+      'x-api-key': env.FIREFLY_CLIENT_ID,
+    },
+  });
+
+  if (!res.ok) {
+    return jsonError(`Firefly job status check failed: ${res.status}`, 502, cors);
+  }
+
+  const data = await res.json();
+
+  if (['failed', 'cancelled', 'timeout'].includes(data.status)) {
+    return jsonError(`Firefly job ${data.status}: ${data.message || data.error_code || 'unknown error'}`, 502, cors);
+  }
+
+  if (data.status !== 'succeeded') {
+    return new Response(
+      JSON.stringify({ status: 'processing' }),
+      { status: 200, headers: { 'Content-Type': 'application/json', ...cors } },
+    );
+  }
+
+  // Image jobs nest the result under `image`; video jobs nest it under `video` instead —
+  // check both in case this status shape is ever reused for an image job in the future.
+  const output = data.result?.outputs?.[0];
+  const url = output?.image?.url || output?.video?.url;
+  if (!url) {
+    return jsonError('Firefly job succeeded but response is missing an output URL', 502, cors);
   }
 
   const videoRes = await fetch(url);
@@ -528,9 +594,14 @@ export default {
       return handleFireflyGenerateVariant(request, env, cors);
     }
 
-    if (pathname === '/api/firefly/generate-variant-video') {
+    if (pathname === '/api/firefly/start-variant-video') {
       if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
-      return handleFireflyGenerateVariantVideo(request, env, cors);
+      return handleFireflyStartVariantVideo(request, env, cors);
+    }
+
+    if (pathname === '/api/firefly/variant-video-status') {
+      if (request.method !== 'GET') return new Response('Method Not Allowed', { status: 405 });
+      return handleFireflyVariantVideoStatus(request, env, cors);
     }
 
     if (request.method !== 'GET') {

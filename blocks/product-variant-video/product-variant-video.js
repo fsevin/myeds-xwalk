@@ -28,6 +28,50 @@ function renderVideo(src) {
   return video;
 }
 
+// Video jobs routinely take 60-180s. A single request held open that long risks Cloudflare
+// canceling the Worker before it can respond (an undocumented ~60-90s wall-clock limit on
+// requests producing no response bytes) — the status text would then be stuck forever with
+// no success or error ever surfacing, since the dropped connection never settles. Poll a
+// lightweight status endpoint instead, so every request/response round trip stays short.
+const VIDEO_POLL_INTERVAL_MS = 6000;
+const VIDEO_POLL_TIMEOUT_MS = 180_000;
+
+async function parseErrorMessage(res) {
+  try {
+    const { error } = await res.json();
+    return error || `Video generation failed: ${res.status}`;
+  } catch {
+    return `Video generation failed: ${res.status}`;
+  }
+}
+
+async function pollVideoStatus(statusUrl) {
+  const deadline = Date.now() + VIDEO_POLL_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    // Each poll depends on the previous one's outcome (and the delay below) before deciding
+    // whether to continue — this is inherently sequential, not a batch of independent
+    // requests, so looped awaits are intentional here.
+    // eslint-disable-next-line no-await-in-loop
+    const res = await fetch(`${EDGE_ORIGIN}/api/firefly/variant-video-status?statusUrl=${encodeURIComponent(statusUrl)}`);
+
+    if (!res.ok) {
+      // eslint-disable-next-line no-await-in-loop
+      throw new Error(await parseErrorMessage(res));
+    }
+
+    if ((res.headers.get('Content-Type') || '').startsWith('video/')) {
+      return res;
+    }
+
+    // Still processing — wait and poll again.
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((resolve) => { setTimeout(resolve, VIDEO_POLL_INTERVAL_MS); });
+  }
+
+  throw new Error('Video generation timed out waiting for a result');
+}
+
 async function generateAndPersist(preview, sourceImg, prompt, size, resource) {
   const sourceRes = await fetch(sourceImg.src, { credentials: 'include' });
   if (!sourceRes.ok) throw new Error(`Failed to read product image: ${sourceRes.status}`);
@@ -38,11 +82,14 @@ async function generateAndPersist(preview, sourceImg, prompt, size, resource) {
   form.append('prompt', prompt);
   form.append('size', size);
 
-  const res = await fetch(`${EDGE_ORIGIN}/api/firefly/generate-variant-video`, { method: 'POST', body: form });
-  if (!res.ok) throw new Error(`Video generation failed: ${res.status}`);
+  const startRes = await fetch(`${EDGE_ORIGIN}/api/firefly/start-variant-video`, { method: 'POST', body: form });
+  if (!startRes.ok) throw new Error(await parseErrorMessage(startRes));
+  const { statusUrl } = await startRes.json();
+  if (!statusUrl) throw new Error('Video generation response missing statusUrl');
 
-  const mimeType = res.headers.get('Content-Type') || 'video/mp4';
-  const blob = await res.blob();
+  const videoRes = await pollVideoStatus(statusUrl);
+  const mimeType = videoRes.headers.get('Content-Type') || 'video/mp4';
+  const blob = await videoRes.blob();
 
   preview.src = URL.createObjectURL(blob);
   preview.hidden = false;
@@ -116,7 +163,7 @@ export default async function decorate(block) {
   const timerId = setTimeout(async () => {
     pendingTimers.delete(resource);
     inFlight.add(resource);
-    status.textContent = 'Generating video… this can take a minute or two.';
+    status.textContent = 'Generating video… this can take up to 3 minutes.';
     try {
       await generateAndPersist(preview, sourceImg, prompt, videoSize, resource);
       status.textContent = 'Video saved — reloading…';
