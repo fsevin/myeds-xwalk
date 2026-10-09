@@ -186,11 +186,15 @@ async function pollFireflyJob(
     const data = await res.json();
 
     if (data.status === 'succeeded') {
-      const image = data.result?.outputs?.[0]?.image;
-      if (!image?.url) {
-        throw new Error('Firefly job succeeded but response is missing image URL');
+      // Image jobs nest the result under `image`; video jobs (despite the comment this
+      // replaces claiming otherwise) nest it under `video` instead — check both so this
+      // poller stays shared between the image and video generation flows.
+      const output = data.result?.outputs?.[0];
+      const url = output?.image?.url || output?.video?.url;
+      if (!url) {
+        throw new Error('Firefly job succeeded but response is missing an output URL');
       }
-      return image.url;
+      return url;
     }
 
     if (['failed', 'cancelled', 'timeout'].includes(data.status)) {
@@ -367,9 +371,8 @@ async function submitFireflyVideoJob(prompt, uploadId, size, env) {
     throw new Error('Firefly video response missing statusUrl');
   }
 
-  // Note: the job result reuses the generic `image` field name even for video output —
-  // result.outputs[0].image.url actually points at the generated .mp4, which is why
-  // pollFireflyJob (shared with the image flow) doesn't need a video-specific variant.
+  // Video output lands under result.outputs[0].video.url rather than .image.url —
+  // pollFireflyJob checks both so it can stay shared between the image and video flows.
   return pollFireflyJob(
     statusUrl,
     token,
