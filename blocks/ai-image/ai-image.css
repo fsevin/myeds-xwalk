@@ -6,6 +6,11 @@
      banner shouldn't — wide/short images (e.g. the Banner option) stay unaffected. */
   max-height: min(60vh, 600px);
   object-fit: cover;
+
+  /* Anchor the crop to the top of the image rather than the center: portrait/square
+     generations usually frame a person starting at the top of the frame, so cropping
+     from the center chops off their head once the height cap kicks in. */
+  object-position: top;
   border-radius: 12px;
 }
 
@@ -14,6 +19,7 @@
   max-width: 100%;
   max-height: min(60vh, 600px);
   object-fit: cover;
+  object-position: top;
   margin-top: 12px;
   border-radius: 12px;
 }
