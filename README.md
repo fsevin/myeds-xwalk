@@ -40,3 +40,13 @@ npm run lint
 1. Install the [AEM CLI](https://github.com/adobe/helix-cli): `npm install -g @adobe/aem-cli`
 1. Start AEM Proxy: `aem up` (opens your browser at `http://localhost:3000`)
 1. Open the `{repo}` directory in your favorite IDE and start coding :)
+
+## AI Image display
+
+The AI Image block's aspect ratio setting controls the generated image dimensions.
+Both the generation preview in Universal Editor and the saved image display the
+complete image without cropping, preserving its aspect ratio as the screen changes.
+Images are centered, constrained to the block width, and capped at the smaller of
+60% of the viewport height or 600px. Portrait and square images may therefore leave
+space on either side rather than filling the block width. No Smart Crop service is
+required for this display behavior.
