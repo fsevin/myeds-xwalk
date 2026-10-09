@@ -4,7 +4,9 @@ import { getCsrfToken, uploadToDam, patchBlockImage } from '../../scripts/dam-pe
 const EDGE_ORIGIN = window.location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://myeds-xwalk-api.fsevin.workers.dev';
 
 // Field order mirrors _product-variant-video.json: productImage, prompt, videoSize,
-// resultVideo — each field is a direct child div of the block.
+// resultVideo — each field is a direct child div of the block. The "classes" multiselect
+// field (same options as video-player's) is rendered as CSS classes on the block itself
+// rather than as a child div.
 function fieldText(block, index) {
   return block.querySelector(`:scope > div:nth-child(${index}) p, :scope > div:nth-child(${index}) div`)?.textContent?.trim() || '';
 }
@@ -19,12 +21,32 @@ function fieldLink(block, index) {
   return block.querySelector(`:scope > div:nth-child(${index}) a`);
 }
 
-function renderVideo(src) {
+function videoOptionsFrom(block) {
+  const autoplay = block.classList.contains('autoplay');
+  const loop = block.classList.contains('loop');
+  // Autoplay only proceeds unprompted in browsers when the video is muted.
+  const muted = block.classList.contains('muted') || autoplay;
+  const controls = !block.classList.contains('hide-controls');
+  return {
+    autoplay, loop, muted, controls,
+  };
+}
+
+function applyVideoOptions(video, {
+  autoplay, loop, muted, controls,
+}) {
+  video.controls = controls;
+  video.loop = loop;
+  video.muted = muted;
+  video.preload = autoplay ? 'auto' : 'metadata';
+  if (autoplay) video.autoplay = true;
+}
+
+function renderVideo(src, options) {
   const video = document.createElement('video');
   video.src = src;
-  video.controls = true;
   video.playsInline = true;
-  video.preload = 'metadata';
+  applyVideoOptions(video, options);
   return video;
 }
 
@@ -115,11 +137,12 @@ export default async function decorate(block) {
   const prompt = fieldText(block, 2);
   const videoSize = fieldText(block, 3) || '1920x1080';
   const resultLink = fieldLink(block, 4);
+  const videoOptions = videoOptionsFrom(block);
 
   block.replaceChildren();
 
   if (resultLink) {
-    block.append(renderVideo(resultLink.href));
+    block.append(renderVideo(resultLink.href, videoOptions));
     return;
   }
 
@@ -144,9 +167,9 @@ export default async function decorate(block) {
 
   const preview = document.createElement('video');
   preview.className = 'product-variant-video-preview';
-  preview.controls = true;
   preview.playsInline = true;
   preview.hidden = true;
+  applyVideoOptions(preview, videoOptions);
   const status = document.createElement('p');
   status.className = 'product-variant-video-status';
 

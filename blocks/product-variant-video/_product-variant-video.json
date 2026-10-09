@@ -52,6 +52,18 @@
           "name": "resultVideo",
           "label": "Generated video",
           "valueType": "string"
+        },
+        {
+          "component": "multiselect",
+          "name": "classes",
+          "label": "Options",
+          "valueType": "string",
+          "options": [
+            { "name": "Autoplay", "value": "autoplay" },
+            { "name": "Loop", "value": "loop" },
+            { "name": "Muted", "value": "muted" },
+            { "name": "Hide controls", "value": "hide-controls" }
+          ]
         }
       ]
     }
