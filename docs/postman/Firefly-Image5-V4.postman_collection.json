@@ -1,0 +1,340 @@
+{
+  "info": {
+    "name": "Firefly Image5 (v4 async) — SANDBOX org",
+    "description": "Tests Adobe Firefly's Image5 model BEFORE migrating edge/api-proxy.js.\n\nWhy this exists: there is no public `/v5/images/generate` endpoint. \"Image5\" is a *model*, selected on the documented async endpoint `POST /v4/images/generate-async` via the required header `x-model-version: image5`. The current production code in edge/api-proxy.js instead calls the old synchronous `POST /v3/images/generate` endpoint with a `modelVersion: \"image5\"` field in the JSON body — that field does not exist in Adobe's published v3 request schema, so it is likely silently ignored (falling back to the v3 default model) rather than actually invoking Image5.\n\nRun order:\n  1. Get IMS Access Token\n  2. Folder \"A. Current prod call (v3 sync)\" — reproduces exactly what api-proxy.js sends today, so you can compare its output against the real Image5 output below.\n  3. Folder \"B. Documented Image5 text-to-image (v4 async)\" — the real, documented way to call Image5. Async: request 1 returns a jobId/statusUrl, keep clicking \"Send\" on the status request until status is 'succeeded'.\n  4. Folder \"C. Documented Image5 image-to-image variant (v4 async)\" — mirrors fireflyGenerateVariant(): upload a reference photo, then generate a variant conditioned on it.\n  5. \"Download Generated Image\" — optional, downloads whatever {{image_url}} was last set by any of the flows above.\n\nUses {{client_id}}/{{client_secret}}/{{scopes}}/{{prompt}} from the Firefly-Sandbox environment — no secrets are stored in this collection.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Get IMS Access Token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "pm.test('Token received', function () { pm.expect(data.access_token).to.be.a('string'); });",
+              "if (data.access_token) { pm.collectionVariables.set('access_token', data.access_token); }"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "grant_type", "value": "client_credentials" },
+            { "key": "client_id", "value": "{{client_id}}" },
+            { "key": "client_secret", "value": "{{client_secret}}" },
+            { "key": "scope", "value": "{{scopes}}" }
+          ]
+        },
+        "url": {
+          "raw": "https://ims-na1.adobelogin.com/ims/token/v3",
+          "protocol": "https",
+          "host": ["ims-na1", "adobelogin", "com"],
+          "path": ["ims", "token", "v3"]
+        }
+      }
+    },
+    {
+      "name": "A. Current prod call (v3 sync)",
+      "item": [
+        {
+          "name": "Generate Image — prod-style body (modelVersion in body, v3 sync)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test('Image url returned', function () {",
+                  "  pm.expect(data.outputs && data.outputs[0] && data.outputs[0].image && data.outputs[0].image.url).to.be.a('string');",
+                  "});",
+                  "console.log('Full v3 sync response (inspect for any model/version hint):', JSON.stringify(data, null, 2));",
+                  "if (data.outputs && data.outputs[0] && data.outputs[0].image) {",
+                  "  pm.collectionVariables.set('image_url_prod_v3', data.outputs[0].image.url);",
+                  "  pm.collectionVariables.set('image_url', data.outputs[0].image.url);",
+                  "  console.log('v3 sync (prod-style) image URL:', data.outputs[0].image.url);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "x-api-key", "value": "{{client_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"{{prompt}}\",\n  \"modelId\": \"firefly_image\",\n  \"modelVersion\": \"image5\",\n  \"aspectRatio\": \"1:1\",\n  \"numVariations\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "https://firefly-api.adobe.io/v3/images/generate",
+              "protocol": "https",
+              "host": ["firefly-api", "adobe", "io"],
+              "path": ["v3", "images", "generate"]
+            },
+            "description": "Reproduces the exact request edge/api-proxy.js sends today (fireflyGenerate). `modelVersion` is NOT part of Adobe's published v3 request schema — this call lets you check whether it's honored or silently ignored."
+          }
+        }
+      ]
+    },
+    {
+      "name": "B. Documented Image5 text-to-image (v4 async)",
+      "item": [
+        {
+          "name": "1. Generate Image (async, x-model-version: image5)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Job accepted (202)', function () { pm.response.to.have.status(202); });",
+                  "const data = pm.response.json();",
+                  "pm.test('jobId and statusUrl returned', function () {",
+                  "  pm.expect(data.jobId).to.be.a('string');",
+                  "  pm.expect(data.statusUrl).to.be.a('string');",
+                  "});",
+                  "if (data.jobId) {",
+                  "  pm.collectionVariables.set('job_id', data.jobId);",
+                  "  pm.collectionVariables.set('status_url', data.statusUrl);",
+                  "  pm.collectionVariables.set('cancel_url', data.cancelUrl);",
+                  "  console.log('Job submitted:', data.jobId, '-> poll:', data.statusUrl);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "x-api-key", "value": "{{client_id}}" },
+              { "key": "x-model-version", "value": "image5" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"{{prompt}}\",\n  \"aspectRatio\": \"1:1\",\n  \"resolutionLevel\": \"2.4MP\",\n  \"modelId\": \"firefly_image\",\n  \"numVariations\": 1,\n  \"referenceBlobs\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "https://firefly-api.adobe.io/v4/images/generate-async",
+              "protocol": "https",
+              "host": ["firefly-api", "adobe", "io"],
+              "path": ["v4", "images", "generate-async"]
+            },
+            "description": "The documented way to invoke Image5: POST /v4/images/generate-async with header x-model-version: image5. Returns 202 with a jobId/statusUrl — not an image URL directly."
+          }
+        },
+        {
+          "name": "2. Check Job Status (poll — click Send until status=succeeded)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test('Status call succeeded', function () { pm.response.to.have.status(200); });",
+                  "console.log('Job status:', data.status);",
+                  "if (data.status === 'succeeded') {",
+                  "  const url = data.result && data.result.outputs && data.result.outputs[0] && data.result.outputs[0].image && data.result.outputs[0].image.url;",
+                  "  pm.test('Image url present on success', function () { pm.expect(url).to.be.a('string'); });",
+                  "  if (url) {",
+                  "    pm.collectionVariables.set('image_url_image5_t2i', url);",
+                  "    pm.collectionVariables.set('image_url', url);",
+                  "    console.log('Image5 text-to-image URL:', url);",
+                  "  }",
+                  "} else if (['failed', 'cancelled', 'timeout'].includes(data.status)) {",
+                  "  pm.expect.fail('Job ended with status: ' + data.status + ' — ' + JSON.stringify(data));",
+                  "} else {",
+                  "  console.log('Still ' + data.status + ' — click Send again in a few seconds.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "x-api-key", "value": "{{client_id}}" }
+            ],
+            "url": {
+              "raw": "{{status_url}}",
+              "host": ["{{status_url}}"]
+            },
+            "description": "Run after request 1 in this folder. Image5 generation is async — re-send this request every few seconds until the test script reports status 'succeeded'."
+          }
+        }
+      ]
+    },
+    {
+      "name": "C. Documented Image5 image-to-image variant (v4 async)",
+      "item": [
+        {
+          "name": "1. Upload Reference Image (v2 storage)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "const id = data.images && data.images[0] && data.images[0].id;",
+                  "pm.test('Upload id returned', function () { pm.expect(id).to.be.a('string'); });",
+                  "if (id) {",
+                  "  pm.collectionVariables.set('upload_id', id);",
+                  "  console.log('Uploaded reference image, id:', id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "image/jpeg" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "x-api-key", "value": "{{client_id}}" }
+            ],
+            "body": {
+              "mode": "file",
+              "file": {}
+            },
+            "url": {
+              "raw": "https://firefly-api.adobe.io/v2/storage/image",
+              "protocol": "https",
+              "host": ["firefly-api", "adobe", "io"],
+              "path": ["v2", "storage", "image"]
+            },
+            "description": "Before sending: in the Body tab, click 'Select File' and choose a product photo (jpeg/png/webp/tiff/jxl, max 15MB). Mirrors uploadImageToFirefly() in edge/api-proxy.js."
+          }
+        },
+        {
+          "name": "2. Generate Variant (async, referenceBlobs + x-model-version: image5)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Job accepted (202)', function () { pm.response.to.have.status(202); });",
+                  "const data = pm.response.json();",
+                  "pm.test('jobId and statusUrl returned', function () {",
+                  "  pm.expect(data.jobId).to.be.a('string');",
+                  "  pm.expect(data.statusUrl).to.be.a('string');",
+                  "});",
+                  "if (data.jobId) {",
+                  "  pm.collectionVariables.set('job_id_variant', data.jobId);",
+                  "  pm.collectionVariables.set('status_url_variant', data.statusUrl);",
+                  "  console.log('Variant job submitted:', data.jobId, '-> poll:', data.statusUrl);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "x-api-key", "value": "{{client_id}}" },
+              { "key": "x-model-version", "value": "image5" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"{{prompt}}\",\n  \"modelId\": \"firefly_image\",\n  \"numVariations\": 1,\n  \"contentClass\": \"photo\",\n  \"referenceBlobs\": [\n    { \"source\": { \"uploadId\": \"{{upload_id}}\" }, \"usage\": \"general\" }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "https://firefly-api.adobe.io/v4/images/generate-async",
+              "protocol": "https",
+              "host": ["firefly-api", "adobe", "io"],
+              "path": ["v4", "images", "generate-async"]
+            },
+            "description": "Run after request 1 in this folder. aspectRatio is intentionally omitted (defaults to 'auto') because referenceBlobs is populated — per spec, aspectRatio must be omitted or 'auto' in that case. Mirrors fireflyGenerateVariant() in edge/api-proxy.js."
+          }
+        },
+        {
+          "name": "3. Check Job Status (poll — click Send until status=succeeded)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test('Status call succeeded', function () { pm.response.to.have.status(200); });",
+                  "console.log('Job status:', data.status);",
+                  "if (data.status === 'succeeded') {",
+                  "  const url = data.result && data.result.outputs && data.result.outputs[0] && data.result.outputs[0].image && data.result.outputs[0].image.url;",
+                  "  pm.test('Image url present on success', function () { pm.expect(url).to.be.a('string'); });",
+                  "  if (url) {",
+                  "    pm.collectionVariables.set('image_url_image5_variant', url);",
+                  "    pm.collectionVariables.set('image_url', url);",
+                  "    console.log('Image5 variant URL:', url);",
+                  "  }",
+                  "} else if (['failed', 'cancelled', 'timeout'].includes(data.status)) {",
+                  "  pm.expect.fail('Job ended with status: ' + data.status + ' — ' + JSON.stringify(data));",
+                  "} else {",
+                  "  console.log('Still ' + data.status + ' — click Send again in a few seconds.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "x-api-key", "value": "{{client_id}}" }
+            ],
+            "url": {
+              "raw": "{{status_url_variant}}",
+              "host": ["{{status_url_variant}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Download Generated Image",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{image_url}}",
+          "host": ["{{image_url}}"]
+        },
+        "description": "Downloads whichever image URL was most recently captured ({{image_url}}) from folder A, B, or C above. Presigned Firefly URLs are time-limited (~1 hour)."
+      }
+    }
+  ],
+  "variable": [
+    { "key": "access_token", "value": "" },
+    { "key": "image_url", "value": "" },
+    { "key": "image_url_prod_v3", "value": "" },
+    { "key": "job_id", "value": "" },
+    { "key": "status_url", "value": "" },
+    { "key": "cancel_url", "value": "" },
+    { "key": "image_url_image5_t2i", "value": "" },
+    { "key": "upload_id", "value": "" },
+    { "key": "job_id_variant", "value": "" },
+    { "key": "status_url_variant", "value": "" },
+    { "key": "image_url_image5_variant", "value": "" }
+  ]
+}

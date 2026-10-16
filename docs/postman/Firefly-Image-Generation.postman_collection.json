@@ -1,0 +1,101 @@
+{
+  "info": {
+    "name": "Firefly Image Generation (SANDBOX org)",
+    "description": "1) Get an IMS access token via client_credentials, 2) call Firefly API v3 generate. Uses {{client_id}}/{{client_secret}}/{{scopes}}/{{prompt}} from the Firefly-Sandbox environment — no secrets are stored in this collection.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Get IMS Access Token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "pm.test('Token received', function () { pm.expect(data.access_token).to.be.a('string'); });",
+              "if (data.access_token) { pm.collectionVariables.set('access_token', data.access_token); }"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "grant_type", "value": "client_credentials" },
+            { "key": "client_id", "value": "{{client_id}}" },
+            { "key": "client_secret", "value": "{{client_secret}}" },
+            { "key": "scope", "value": "{{scopes}}" }
+          ]
+        },
+        "url": {
+          "raw": "https://ims-na1.adobelogin.com/ims/token/v3",
+          "protocol": "https",
+          "host": ["ims-na1", "adobelogin", "com"],
+          "path": ["ims", "token", "v3"]
+        }
+      }
+    },
+    {
+      "name": "2. Generate Firefly Image",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "pm.test('Image url returned', function () {",
+              "  pm.expect(data.outputs && data.outputs[0] && data.outputs[0].image && data.outputs[0].image.url).to.be.a('string');",
+              "});",
+              "if (data.outputs && data.outputs[0] && data.outputs[0].image) {",
+              "  pm.collectionVariables.set('image_url', data.outputs[0].image.url);",
+              "  console.log('Generated image URL:', data.outputs[0].image.url);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{access_token}}" },
+          { "key": "x-api-key", "value": "{{client_id}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"prompt\": \"{{prompt}}\",\n  \"size\": { \"width\": 1024, \"height\": 1024 },\n  \"numVariations\": 1\n}"
+        },
+        "url": {
+          "raw": "https://firefly-api.adobe.io/v3/images/generate",
+          "protocol": "https",
+          "host": ["firefly-api", "adobe", "io"],
+          "path": ["v3", "images", "generate"]
+        }
+      }
+    },
+    {
+      "name": "3. (Optional) Download Generated Image",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{image_url}}",
+          "host": ["{{image_url}}"]
+        },
+        "description": "Run after request 2. The presigned Firefly URL is time-limited (~1 hour) — download the bytes here if you need to keep the result."
+      }
+    }
+  ],
+  "variable": [
+    { "key": "access_token", "value": "" },
+    { "key": "image_url", "value": "" }
+  ]
+}
