@@ -367,6 +367,13 @@ async function startFireflyVideoJob(prompt, uploadId, size, env) {
     }),
   });
 
+  if (res.status === 429) {
+    const err = new Error('Firefly video generate rate limited (429): too many requests or concurrent video jobs');
+    err.status = 429;
+    err.retryAfter = Number.parseInt(res.headers.get('Retry-After'), 10) || 0;
+    throw err;
+  }
+
   if (res.status !== 202) {
     throw new Error(`Firefly video generate failed: ${res.status}`);
   }
@@ -409,6 +416,13 @@ async function handleFireflyStartVariantVideo(request, env, cors) {
     const uploadId = await uploadImageToFirefly(bytes, image.type || 'image/jpeg', env);
     statusUrl = await startFireflyVideoJob(prompt, uploadId, size, env);
   } catch (e) {
+    if (e.status === 429) {
+      const headers = e.retryAfter ? { 'Retry-After': String(e.retryAfter), ...cors } : cors;
+      return new Response(
+        JSON.stringify({ error: e.message, retryAfter: e.retryAfter }),
+        { status: 429, headers: { 'Content-Type': 'application/json', ...headers } },
+      );
+    }
     return jsonError(e.message, 502, cors);
   }
 

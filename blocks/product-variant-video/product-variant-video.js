@@ -94,7 +94,33 @@ async function pollVideoStatus(statusUrl) {
   throw new Error('Video generation timed out waiting for a result');
 }
 
-async function generateAndPersist(preview, sourceImg, prompt, size, resource) {
+const START_MAX_ATTEMPTS = 4;
+const START_DEFAULT_BACKOFF_S = 15;
+
+// Firefly answers 429 when video jobs are submitted too fast or too many run concurrently;
+// it clears on its own, so wait (honoring Retry-After) and resubmit instead of failing.
+async function startVideoJob(form, onRateLimited) {
+  for (let attempt = 1; ; attempt += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    const res = await fetch(`${EDGE_ORIGIN}/api/firefly/start-variant-video`, { method: 'POST', body: form });
+    if (res.ok) return res.json();
+
+    if (res.status !== 429 || attempt >= START_MAX_ATTEMPTS) {
+      const message = res.status === 429
+        ? 'Firefly is rate limiting video generation (429). Please wait a minute and try again.'
+        // eslint-disable-next-line no-await-in-loop
+        : await parseErrorMessage(res);
+      throw new Error(message);
+    }
+
+    const waitS = Math.min(Number.parseInt(res.headers.get('Retry-After'), 10) || START_DEFAULT_BACKOFF_S * attempt, 60);
+    onRateLimited(waitS, attempt);
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((resolve) => { setTimeout(resolve, waitS * 1000); });
+  }
+}
+
+async function generateAndPersist(preview, sourceImg, prompt, size, resource, onRateLimited) {
   const sourceRes = await fetch(sourceImg.src, { credentials: 'include' });
   if (!sourceRes.ok) throw new Error(`Failed to read product image: ${sourceRes.status}`);
   const sourceBlob = await sourceRes.blob();
@@ -104,9 +130,7 @@ async function generateAndPersist(preview, sourceImg, prompt, size, resource) {
   form.append('prompt', prompt);
   form.append('size', size);
 
-  const startRes = await fetch(`${EDGE_ORIGIN}/api/firefly/start-variant-video`, { method: 'POST', body: form });
-  if (!startRes.ok) throw new Error(await parseErrorMessage(startRes));
-  const { statusUrl } = await startRes.json();
+  const { statusUrl } = await startVideoJob(form, onRateLimited);
   if (!statusUrl) throw new Error('Video generation response missing statusUrl');
 
   const videoRes = await pollVideoStatus(statusUrl);
@@ -188,7 +212,9 @@ export default async function decorate(block) {
     inFlight.add(resource);
     status.textContent = 'Generating video… this can take up to 3 minutes.';
     try {
-      await generateAndPersist(preview, sourceImg, prompt, videoSize, resource);
+      await generateAndPersist(preview, sourceImg, prompt, videoSize, resource, (waitS) => {
+        status.textContent = `Firefly is busy (429) — retrying in ${waitS}s…`;
+      });
       status.textContent = 'Video saved — reloading…';
       window.location.reload();
     } catch (e) {
